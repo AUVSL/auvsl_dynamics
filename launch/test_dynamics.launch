@@ -1,0 +1,4 @@
+<launch>
+  <rosparam file="$(find auvsl_dynamics)/config/params.yaml"/>
+  <node name="test_dynamics" pkg="auvsl_dynamics" type="test_dynamics_node" output="screen" launch-prefix=""/>
+</launch>

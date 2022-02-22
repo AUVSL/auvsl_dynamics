@@ -1,0 +1,69 @@
+
+* Big Deal: Can run at bigger timestep with RK4. Interesting.
+  Still getting good accuracy over test datasets at .005s timestep
+  When previously it was .001s. Very good. May not work as well with
+  non flat terrain however.
+  
+* DONE Verified simulation
+  Improved accuracy from urdf model
+
+* DONE Verified CppAD templated simulation
+  Same accuracy when using float. But much slower. Although,
+  that could be due to the feenableexcept flags.
+  Nope, still slower. Make sense, the templated floats have data members,
+  which probably screws up stride length which ruins spatial locality
+  and vectorization
+
+* DONE Take a god damn derivative
+  Lets do it wrt the tire sinkage parameter n0.
+  That sounds like fun.
+  Managed to take a basic derivative with CppAD
+  not going to take the derivative wrt to sinkage yet
+  because CppAD requires dynamic sized vectors
+  and not static sized. Which makes things a bit more
+  difficutl for me. Nope, I found a simple way around it.
+
+* TODO CppADCodeGen
+  This is the big gun. Lets see if I can make it work
+  for derivative wrt sinkage.
+
+* Theres a lot I need to understand:
+** DONE Compute f_ext in the frame of each tire
+   Need to figure out the transforms.
+   
+   Base link definitely follows the usual convention:
+   x - forward
+   y - left
+   z - up
+   
+   3 Homogenous Transforms per tire (not including inverses):
+   See transforms.cpp and look at each function.
+   q = <0,0,0,0>
+   Type_fr_base_link_X_fr_front_left_wheel()            # This is the transform from base
+   [1  0  0  tx]                                        #  to joint frame. (Doesn't rotate)
+   [0  0  1  ty]
+   [0 -1  0  tz]
+   [0  0  0  1 ]
+   Type_fr_base_link_X_fr_front_left_wheel_link()       # Transform from base to tire frame.
+   [1  0  0  tx]                                        # Only aligns with joint frame when q=<0,0,0,0>
+   [0  0  1  ty]
+   [0 -1  0  tz]
+   [0  0  0  1 ]
+   Type_fr_base_link_X_fr_front_left_wheel_link_COM()   # The rotation is in the y direction.
+   [1  0  0  tx]                                        # So this is like the tire link frame
+   [0  1  0  ty]                                        # except it rotates around y and not z.
+   [0  0  1  tz]                                        # That means it is aligned with the base frame at q=0.
+   [0  0  0  1 ]
+
+   From the docs:
+   A_X_B is a transform that takes vectors in frame b and
+   expresses them in frame a. As in:
+   v_a = A_X_B* v_b
+
+   Note this transform: fr_base_link_X_fr_base_link_COM from transforms.h
+   base_link reference frame unfortunately does not align with the center of mass of the base_link
+   
+** How the motionTransform and forceTransform classes work
+   I've found out that the code only updates motionTransform when setJointStatus is called.
+   In the forward dynamics code, forceTransform class isn't used, they just use the transpose of motionTransform.
+   
