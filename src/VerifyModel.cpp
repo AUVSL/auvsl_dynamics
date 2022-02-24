@@ -2,9 +2,12 @@
 
 //Good old fashioned spaghetti code. Enjoy.
 
+#define TIME_HORIZON 6.0f
 
 HybridDynamics *g_hybrid_model;
 Scalar z_stable;
+
+float lr_;
 
 typedef struct{
   Scalar vl;
@@ -156,6 +159,89 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
 
 
 
+
+void forwardPropagateHorizon(double start_time, Scalar *X_start,
+                             Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params,
+                             Eigen::Matrix<float,Eigen::Dynamic,1> &dmodel_params){
+  //find corresponding index in odom_vec. By finding timestamp with
+  //minimum difference.
+  unsigned start_idx = 0;
+  double time_min = 100;
+  double diff;
+  for(unsigned i = 0; i < odom_vec.size(); i++){
+    diff = fabs(odom_vec[i].ts - start_time);
+    if(diff < time_min){
+      time_min = diff;
+      start_idx = i;
+    }
+  }
+  
+  //find gt end point in advance.
+  unsigned j;
+  for(j = 0; (gt_vec[j].ts - start_time) < TIME_HORIZON && j < gt_vec.size(); j++){}
+  
+  
+  g_hybrid_model->initStateCOM(X_start);  
+
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> model_params(5);
+  for(int ii = 0; ii < 5; ii++){
+    model_params[ii] = float_model_params[ii];
+  }  
+  CppAD::Independent(model_params);
+
+  for(int ii = 0; ii < 5; ii++){
+    g_hybrid_model->bekker_params[ii] = model_params[ii]; //.8;
+  }
+  
+  Scalar vl, vr;
+  for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < TIME_HORIZON; idx++){
+  //for(unsigned idx = start_idx; idx < (start_idx+10); idx++){
+    vl = odom_vec[idx].vl;
+    vr = odom_vec[idx].vr;
+    g_hybrid_model->step(vl, vr);
+  }
+  
+  Scalar x_err = g_hybrid_model->state_[4] - gt_vec[j].x;
+  Scalar y_err = g_hybrid_model->state_[5] - gt_vec[j].y;
+  Scalar lin_err = CppAD::sqrt(x_err*x_err + y_err*y_err);
+  
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> loss(1);
+  loss[0] = lin_err;
+  
+  CppAD::ADFun<float> auto_diff(model_params, loss);
+  
+  ROS_INFO("Loss %f", CppAD::Value(lin_err));
+
+  if(fabs(CppAD::Value(lin_err)) > 10){
+    return; //hack. If this conditions triggers, something bad happened during the forward pass. So ignore.
+  }
+  
+  Eigen::Matrix<float,Eigen::Dynamic,1> y1(1);
+  y1[0] = 1;
+  //ROS_INFO("Reverse AD"); //hmm
+  dmodel_params = auto_diff.Reverse(1, y1);
+  ROS_INFO("dmodel_params %f %f %f %f %f", dmodel_params[0], dmodel_params[1], dmodel_params[2], dmodel_params[3], dmodel_params[4]);
+
+  for(int ii = 0; ii < 5; ii++){
+    if(fabs(dmodel_params[ii]) > 10){
+      dmodel_params[0] = 0;
+      dmodel_params[1] = 0;
+      dmodel_params[2] = 0;
+      dmodel_params[3] = 0;
+      dmodel_params[4] = 0;
+      return;
+    }
+  }
+  
+  //float_model_params[0] -= .001f*dmodel_params[0];
+  //ROS_INFO("Sinkage Exponent %f", float_model_params[0]);
+}
+
+
+
+
+
+
 //simulate 6 second intervals just like the paper.
 void simulatePeriod(double start_time, Scalar *X_start, Scalar *X_end){
   //find corresponding index in odom_vec. By finding timestamp with
@@ -174,7 +260,7 @@ void simulatePeriod(double start_time, Scalar *X_start, Scalar *X_end){
   g_hybrid_model->initStateCOM(X_start);  
   
   Scalar vl, vr;
-  for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < 6; idx++){
+  for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < TIME_HORIZON; idx++){
     vl = odom_vec[idx].vl;
     vr = odom_vec[idx].vr;
     g_hybrid_model->step(vl, vr);
@@ -224,7 +310,6 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
   
   Scalar x_err, y_err, yaw_err, lin_displacement, ang_displacement;
   
-  double dt;
   Scalar trans_sum = 0;
   Scalar ang_sum = 0;
   Scalar ang_err;
@@ -234,17 +319,17 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
   //so it doesnt skip the first one.
   double time = 0;
   for(unsigned i = 0; i < gt_vec.size(); i++){
-    if((gt_vec[i].ts - time) < 6.0f){ //test over 6 second intervals.
+    if((gt_vec[i].ts - time) < TIME_HORIZON){ //test over 6 second intervals.
       continue;
     }
     
     time = gt_vec[i].ts;
     
-    if((gt_vec[gt_vec.size()-1].ts - time) < 6.0f){
+    if((gt_vec[gt_vec.size()-1].ts - time) < TIME_HORIZON){
       break; //If we reached the end of the gt_vec dataset, we're done.
     }
     
-    if((odom_vec[odom_vec.size()-1].ts - time) < 6.0f){
+    if((odom_vec[odom_vec.size()-1].ts - time) < TIME_HORIZON){
       break; //If we reached the end of the odom_vec dataset, we're done.
     }
     
@@ -262,7 +347,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     Xn[3] = initial_quat.getW();
     
     
-    if((imu_vec[imu_vec.size()-1].ts - time) < 6.0f){
+    if((imu_vec[imu_vec.size()-1].ts - time) < TIME_HORIZON){
       break; //If we reached the end of the imu_vec dataset, we can quit.
     }
     
@@ -292,7 +377,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     
     //Done simulating, now evaluate error.
     unsigned j;
-    for(j = i; (gt_vec[j].ts - time) < 6.0f && j < gt_vec.size(); j++){}
+    for(j = i; (gt_vec[j].ts - time) < TIME_HORIZON && j < gt_vec.size(); j++){}
         
     getDisplacement(i, j, lin_displacement, ang_displacement);
       
@@ -319,8 +404,8 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     Scalar rel_lin_err = CppAD::sqrt(x_err*x_err + y_err*y_err) / lin_displacement;
     Scalar rel_ang_err = yaw_err / ang_displacement;
       
-    ROS_INFO("Relative lin err %s       ang err %s", CppAD::to_string(rel_lin_err).c_str(), CppAD::to_string(rel_ang_err).c_str());
-    ROS_INFO("\n\n\n");
+    //ROS_INFO("Relative lin err %s       ang err %s", CppAD::to_string(rel_lin_err).c_str(), CppAD::to_string(rel_ang_err).c_str());
+    //ROS_INFO("\n\n\n");
     
     trans_sum += rel_lin_err;
     ang_sum += rel_ang_err;
@@ -332,7 +417,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
   ROS_INFO(" ");
   ROS_INFO(" ");
   ROS_INFO(" ");
-  //ROS_INFO("MARE Translation Error %f   MARE Heading Error %f", trans_sum/count, ang_sum/count);
+  ROS_INFO("MARE Translation Error %f", CppAD::Value(trans_sum)/count);
   
   lin_err_sum_ret = trans_sum;
   ang_err_sum_ret = ang_sum;
@@ -353,7 +438,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
 
 //BackPropovaction. Oh yeah.
 //Propagate gradients deep into physical model for whatever nefarious purposes we can imagine
-void modelBatchForward(Scalar &batch_loss){
+void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params){
   Scalar Xn[21];
   Scalar Xn1[21];
   for(int i = 0; i < 21; i++){
@@ -365,32 +450,33 @@ void modelBatchForward(Scalar &batch_loss){
   
   Scalar x_err, y_err, yaw_err, lin_displacement, ang_displacement;
   
-  double dt;
   Scalar trans_sum = 0;
   Scalar ang_sum = 0;
   Scalar ang_err;
   
   int count = 0;
-  batch_loss = 0;
+  
+  Eigen::Matrix<float,Eigen::Dynamic,1> batch_dmodel_params(5);
+  batch_dmodel_params = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(5,1); //init this sum.
   
   //so it doesnt skip the first one.
   double time = 0;
   for(unsigned i = 0; i < gt_vec.size(); i++){
-    if((gt_vec[i].ts - time) < 6.0f){ //test over 6 second intervals.
+    if((gt_vec[i].ts - time) < TIME_HORIZON){ //test over 6 second intervals.
       continue;
     }
     
     time = gt_vec[i].ts;
     
-    if((gt_vec[gt_vec.size()-1].ts - time) < 6.0f){
+    if((gt_vec[gt_vec.size()-1].ts - time) < TIME_HORIZON){
       break; //If we reached the end of the gt_vec dataset, we're done.
     }
     
-    if((odom_vec[odom_vec.size()-1].ts - time) < 6.0f){
+    if((odom_vec[odom_vec.size()-1].ts - time) < TIME_HORIZON){
       break; //If we reached the end of the odom_vec dataset, we're done.
     }
     
-    if((imu_vec[imu_vec.size()-1].ts - time) < 6.0f){
+    if((imu_vec[imu_vec.size()-1].ts - time) < TIME_HORIZON){
       break; //If we reached the end of the imu_vec dataset, we can quit.
     }
     
@@ -429,25 +515,32 @@ void modelBatchForward(Scalar &batch_loss){
     Xn[15] = gt_vec[i].vy;
     Xn[16] = 0;
     
-    simulatePeriod(time, Xn, Xn1);
+    Eigen::Matrix<float,Eigen::Dynamic,1> dmodel_params(5);
+    //given initial conditions at start time of the control sequence, calc the derivatve of loss wrt model params
+    ROS_INFO("%f %f %f %f %f", float_model_params[0], float_model_params[1], float_model_params[2], float_model_params[3], float_model_params[4]);
+    forwardPropagateHorizon(time, Xn, float_model_params, dmodel_params);
+    batch_dmodel_params += dmodel_params;
     
-    //Done simulating, now evaluate error.
-    unsigned j;
-    for(j = i; (gt_vec[j].ts - time) < 6.0f && j < gt_vec.size(); j++){}
-        
-    getDisplacement(i, j, lin_displacement, ang_displacement);
-      
-    x_err = Xn1[4] - gt_vec[j].x;
-    y_err = Xn1[5] - gt_vec[j].y;
-    
-    Scalar lin_err = CppAD::sqrt(x_err*x_err + y_err*y_err);
-    batch_loss += lin_err;
-    
-    ROS_INFO("6s Horizon Loss %f", rel_lin_err);
     count++;
   }
+
+  batch_dmodel_params = batch_dmodel_params / (float)count;
+  float_model_params = float_model_params - (lr_*batch_dmodel_params);
+
+  ROS_INFO("\n\n");
+  ROS_INFO("======================================================================================");
+  ROS_INFO("%f %f %f %f %f", float_model_params[0], float_model_params[1], float_model_params[2], float_model_params[3], float_model_params[4]);
+  ROS_INFO("======================================================================================\n\n\n");
   
-  batch_loss = batch_loss / count;
+  float temp_values[5];
+  temp_values[0] = float_model_params[0];
+  temp_values[1] = float_model_params[1];
+  temp_values[2] = float_model_params[2];
+  temp_values[3] = float_model_params[3];
+  temp_values[4] = float_model_params[4];
+  g_hybrid_model->log_value(temp_values);
+  
+  //ROS_INFO("Sinkage Exponent %f", float_model_params[0]);
   
   ROS_INFO(" ");
   ROS_INFO(" ");
@@ -544,33 +637,39 @@ void test_LD3_path(){
 //Holy shit, we can compute the gradient wrt any model parameters.
 //This function just does the gradient descent.
 //Doesnt derive the gradient.
-void train_model_on_dataset(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params, CppAD::ADFun<float> &auto_diff){
+void train_model_on_dataset(float lr){
   //Need to derive expression for gradient wrt loss function.
-  
+  lr_ = lr;
   
   char odom_fn[100];
   char imu_fn[100];
   char gt_fn[100];
+  
+  Eigen::Matrix<float,Eigen::Dynamic,1> float_model_params(5);
+  float_model_params[0] = 29.76f;
+  float_model_params[1] = 2083.0f;
+  float_model_params[2] = .8f;
+  float_model_params[3] = 0;
+  float_model_params[4] = .39f;
 
-  for(int jj = 1; jj <= 17; jj++){
-    memset(odom_fn, 0, 100);
-    sprintf(odom_fn, "/home/justin/Downloads/Train3/extracted_data/odometry/%04d_odom_data.txt", jj);
-    ROS_INFO("Reading Odom File %s", odom_fn);
+  for(int ii = 0; ii < 10; ii++){
+    for(int jj = 1; jj <= 17; jj++){
+      memset(odom_fn, 0, 100);
+      sprintf(odom_fn, "/home/justin/Downloads/Train3/extracted_data/odometry/%04d_odom_data.txt", jj);
+      ROS_INFO("Reading Odom File %s", odom_fn);
   
-    memset(imu_fn, 0, 100);
-    sprintf(imu_fn, "/home/justin/Downloads/Train3/extracted_data/imu/%04d_imu_data.txt", jj);
-    ROS_INFO("Reading imu File %s", imu_fn);
+      memset(imu_fn, 0, 100);
+      sprintf(imu_fn, "/home/justin/Downloads/Train3/extracted_data/imu/%04d_imu_data.txt", jj);
+      ROS_INFO("Reading imu File %s", imu_fn);
   
-    memset(gt_fn, 0, 100);
-    sprintf(gt_fn, "/home/justin/Downloads/Train3/localization_ground_truth/%04d_CV_grass_GT.txt", jj);
-    ROS_INFO("Reading gt File %s", gt_fn);
+      memset(gt_fn, 0, 100);
+      sprintf(gt_fn, "/home/justin/Downloads/Train3/localization_ground_truth/%04d_Tr_grass_GT.txt", jj);
+      ROS_INFO("Reading gt File %s", gt_fn);
     
-    load_files(odom_fn, imu_fn, gt_fn);  
-    
-    Scalar batch_loss;
-    modelBatchForward(batch_loss); //this just computes the loss.
-    
-    auto_diff.Reverse(1,batch_loss);
+      load_files(odom_fn, imu_fn, gt_fn);  
+
+      fileTrain(float_model_params);
+    }
   }
 }
 

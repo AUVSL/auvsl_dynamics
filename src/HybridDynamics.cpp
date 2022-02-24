@@ -42,11 +42,20 @@ HybridDynamics::HybridDynamics(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
   
   //For more information on these, see TerrainMap.cpp and TerrainMap.h
-  bekker_params[0] = 29.76;
+  
+  bekker_params[0] = 29.76;           //kc
+  bekker_params[1] = 2083;            //kphi
+  bekker_params[2] = .8;              //n0
+  bekker_params[3] = 0;               //n1
+  bekker_params[4] = 22.5*M_PI/180.0; //phi
+  
+  /*
+  bekker_params[0] = 29.760115;
   bekker_params[1] = 2083;
-  bekker_params[2] = .8;
-  bekker_params[3] = 0;
-  bekker_params[4] = 22.5*M_PI/180.0;
+  bekker_params[2] = .806650;
+  bekker_params[3] = .134681;
+  bekker_params[4] = .462878;
+  */
   
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);
@@ -196,6 +205,7 @@ void HybridDynamics::get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &
 //Going to use a pretrained network.
 //Will need to apply a rotation to the calculated force because the tire frame rotates with the tire :(
 //So essentially the rotation needs to undo the tire frame rotation.
+/*
 void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
   Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
   Eigen::Matrix<Scalar,3,3> cpt_rots[4];    //world orientation of cpt frames
@@ -250,7 +260,155 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     
     TireNetwork::forward(features, forces);
     
-    //forces[3] = CppAD::abs(forces[3]);
+    forces[0] = CppAD::CondExpGt(vel_x_tan, cpt_vels[ii][0], CppAD::abs(forces[0]), -CppAD::abs(forces[0]));
+    forces[1] = CppAD::CondExpGt(cpt_vels[ii][1], literally_zero, -CppAD::abs(forces[1]), CppAD::abs(forces[1]));
+    
+    //forces[2] = std::min(forces[2], 0); //Fz should never point up
+    
+    Eigen::Matrix<Scalar,3,1> lin_force;
+    Eigen::Matrix<Scalar,3,1> ang_force;
+    
+    lin_force[0] = forces[0];
+    lin_force[1] = forces[1];
+    lin_force[2] = forces[2];
+    
+    ang_force[0] = 0;
+    ang_force[1] = 0; //forces[3];
+    ang_force[2] = 0;
+    
+    //Convert from world orientation to tire_cpt orientation
+    //So that reaction forces are oriented with the surface normal
+    Eigen::Matrix<Scalar,3,1> temp_vel = cpt_rots[ii]*cpt_vels[ii];
+    
+    //ang_force = cpt_rots[ii].transpose()*ang_force;
+    lin_force[2] = CppAD::CondExpGt(temp_vel[2], literally_zero, lin_force[2] * .1, lin_force[2]);
+    
+    lin_force[0] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[0]);
+    lin_force[1] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[1]);
+    lin_force[2] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[2]);
+    
+    Force wrench;
+    wrench[0] = ang_force[0];
+    wrench[1] = -ang_force[2];
+    wrench[2] = ang_force[1];
+    wrench[3] = lin_force[0];  //the different indices here is due to a rotation in coordinate frame.
+    wrench[4] = -lin_force[2]; //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
+    wrench[5] = lin_force[1];
+    
+    ext_forces[orderedLinkIDs[ii+1]] = wrench;  
+  }
+}
+*/
+
+//DUmmy function with no conditionals. Just a test.
+/*
+void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
+  Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
+  Eigen::Matrix<Scalar,3,3> cpt_rots[4];    //world orientation of cpt frames
+  get_tire_cpts(X, cpt_points, cpt_rots);
+  
+  Scalar sinkages[4];
+  get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
+
+  Eigen::Matrix<Scalar,3,1> cpt_vels[4];
+  get_tire_cpt_vels(X, cpt_vels);
+  
+  Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
+  Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
+  features[3] = bekker_params[0];
+  features[4] = bekker_params[1];
+  features[5] = bekker_params[2];
+  features[6] = bekker_params[3];
+  features[7] = bekker_params[4];
+  
+  for(int ii = 0; ii < 4; ii++){
+    const Scalar small_val = 1e-3f;
+    const Scalar literally_zero = 0;
+    
+    Scalar vel_x_tan = tire_radius*X[17+ii];
+    Scalar slip_ratio = vel_x_tan - cpt_vels[ii][0];
+    
+    Eigen::Matrix<Scalar,3,1> lin_force;
+    Eigen::Matrix<Scalar,3,1> ang_force;
+    
+    features[0] = sinkages[ii];
+    features[1] = slip_ratio;
+    features[2] = 0.0f;
+    
+    TireNetwork::forward(features, forces);
+    
+    lin_force[0] = forces[0];
+    lin_force[1] = 0; //X[17+ii];
+    lin_force[2] = forces[2];
+    
+    ang_force[0] = 0;
+    ang_force[1] = 0;
+    ang_force[2] = 0;
+    
+    Force wrench;
+    wrench[0] = ang_force[0];
+    wrench[1] = -ang_force[2];
+    wrench[2] = ang_force[1];
+    wrench[3] = lin_force[0];  //the different indices here is due to a rotation in coordinate frame.
+    wrench[4] = -lin_force[2]; //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
+    wrench[5] = lin_force[1];
+    
+    ext_forces[orderedLinkIDs[ii+1]] = wrench;  
+  }
+  
+}
+*/
+
+
+
+void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
+  Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
+  Eigen::Matrix<Scalar,3,3> cpt_rots[4];    //world orientation of cpt frames
+  get_tire_cpts(X, cpt_points, cpt_rots);
+  
+  Scalar sinkages[4];
+  get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
+  
+  //get the velocity of each tire contact point expressed in the contact point frame
+  Eigen::Matrix<Scalar,3,1> cpt_vels[4];
+  get_tire_cpt_vels(X, cpt_vels);
+  
+  //We now have sinkage and velocity of each tire contact point
+  //Next we need to compute tire-soil reaction forces
+  //Then we will transform these forces into the body frame of each tire
+  //Due to the stupid way that the tire joint frame transforms are defined we
+  //will need a transform that undos the rotation of the tire.
+  //A smarter solution would be to permanently set the tire joint angles to zero
+  //because those values literally change nothing about the simulation.
+  //We're doing it: Joint positions are set to zero.
+  //Transform is needed to tire frame because joints are oriented so that z is the joint axis.
+  
+  Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
+  Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
+  features[3] = bekker_params[0];
+  features[4] = bekker_params[1];
+  features[5] = bekker_params[2];
+  features[6] = bekker_params[3];
+  features[7] = bekker_params[4];
+  
+  //log_value(sinkages);
+  
+  for(int ii = 0; ii < 4; ii++){
+    Scalar vel_x_tan = tire_radius*X[17+ii]; //17 is the idx that tire velocities start at.
+    Scalar slip_ratio;  //longitudinal slip
+    Scalar slip_angle;  //
+    
+    const Scalar small_val = 1e-1f;
+    const Scalar literally_zero = 0;
+    
+    slip_ratio = 1.0 - (cpt_vels[ii][0] / (vel_x_tan + small_val));
+    slip_angle = CppAD::atan(cpt_vels[ii][1] / (CppAD::abs(cpt_vels[ii][0]) + small_val));
+        
+    features[0] = sinkages[ii];
+    features[1] = slip_ratio;
+    features[2] = slip_angle;
+    
+    TireNetwork::forward(features, forces);
     
     forces[0] = CppAD::CondExpGt(vel_x_tan, cpt_vels[ii][0], CppAD::abs(forces[0]), -CppAD::abs(forces[0]));
     forces[1] = CppAD::CondExpGt(cpt_vels[ii][1], literally_zero, -CppAD::abs(forces[1]), CppAD::abs(forces[1]));
@@ -274,10 +432,7 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     
     //ang_force = cpt_rots[ii].transpose()*ang_force;
     lin_force[2] = CppAD::CondExpGt(temp_vel[2], literally_zero, lin_force[2] * .1, lin_force[2]);
-
-    //if(sinkages[ii] < 0)
-    //  continue;
-
+    
     lin_force[0] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[0]);
     lin_force[1] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[1]);
     lin_force[2] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[2]);
@@ -294,6 +449,9 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   }
 }
 
+
+
+
 void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xt1, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u){
   Eigen::Matrix<Scalar,STATE_DIM,1> temp;
   Eigen::Matrix<Scalar,STATE_DIM,1> k1;
@@ -304,7 +462,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   Scalar ts = timestep;
   
   ODE(X, k1, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+.5*ts*k1[i];
   temp = X + .5*ts*k1;
   temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
@@ -313,7 +470,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   temp[3] /= temp_norm;
   
   ODE(temp, k2, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+.5*ts*k2[i];
   temp = X + .5*ts*k2;
   temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
@@ -322,7 +478,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   temp[3] /= temp_norm;
   
   ODE(temp, k3, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+ts*k3[i];
   temp = X + ts*k3;
   temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
@@ -331,9 +486,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   temp[3] /= temp_norm;
   
   ODE(temp, k4, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++){
-  //  Xt1[i] = X[i] + (ts/6.0)*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i]);
-  //}
   Xt1 = X + (ts/6.0)*(k1 + 2*k2 + 2*k3 + k4);
   temp_norm = CppAD::sqrt(Xt1[0]*Xt1[0] + Xt1[1]*Xt1[1] + Xt1[2]*Xt1[2] + Xt1[3]*Xt1[3]);
   Xt1[0] /= temp_norm;
@@ -462,10 +614,11 @@ void HybridDynamics::start_log(){
 
   ros::param::get("/debug_log_file_name", filename);
   debug_file.open(filename.c_str());
-  debug_file << "zr1,zr2,zr3,zr4\n";
+  debug_file << "kc,kphi,n0,n1,phi\n";
 }
 
 void HybridDynamics::log_vehicle_state(){
+/*
   if(!log_file.is_open()){
     return;
   }
@@ -496,13 +649,15 @@ void HybridDynamics::log_vehicle_state(){
   log_file << state_[18] << ',';
   log_file << state_[19] << ',';
   log_file << state_[20] << '\n';
+*/
 }
 
-void HybridDynamics::log_value(Scalar *values){
+void HybridDynamics::log_value(float *values){
   debug_file << values[0] << ',';
   debug_file << values[1] << ',';
   debug_file << values[2] << ',';
-  debug_file << values[3] << '\n';
+  debug_file << values[3] << ',';
+  debug_file << values[4] << '\n';
 }
 
 void HybridDynamics::stop_log(){

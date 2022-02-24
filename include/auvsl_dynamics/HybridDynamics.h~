@@ -29,7 +29,7 @@ public:
   ~HybridDynamics();
   
   void log_vehicle_state();
-  void log_value(float *values);
+  void log_value(Scalar *values);
   
   static void start_log();
   static void stop_log();

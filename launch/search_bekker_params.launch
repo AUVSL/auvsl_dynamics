@@ -1,4 +1,4 @@
 <launch>
   <rosparam file="$(find auvsl_dynamics)/config/params.yaml"/>
-  <node name="search_bekker_params" pkg="auvsl_dynamics" type="search_bekker_params_node" output="screen" launch-prefix="gdb -ex run"/>
+  <node name="search_bekker_params" pkg="auvsl_dynamics" type="search_bekker_params_node" output="screen" launch-prefix=" "/>
 </launch>

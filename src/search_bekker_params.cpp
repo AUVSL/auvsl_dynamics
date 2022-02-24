@@ -18,12 +18,13 @@
 
 static HybridDynamics *g_hybrid_model;
 
-/*
+
 //Example of how to use CppAD with eigen.
 //I couldn't find a good tutorial for this online.
 //I did a lot of trial and error to find the right template parameters
 //for the eigen::Matrix's and the CppAD functions
 
+/*
 int main(int argc, char **argv){
   //feenableexcept(FE_INVALID | FE_OVERFLOW);
   ros::init(argc, argv, "search_bekker_params");
@@ -59,8 +60,36 @@ int main(int argc, char **argv){
 }
 */
 
+/*
+//I want to test if reverse and forward return same result. (I think they should)
+int main(int argc, char **argv){
+  ros::init(argc, argv, "search_bekker_params");
+  ros::NodeHandle nh;
+  
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> X(1);
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> Y(1);
+  
+  X[0] = 1;
+  
+  CppAD::Independent(X);
+  Y[0] = (X[0]*X[0]) + 3*X[0] + 6.0f;
+  CppAD::ADFun<float> fun(X, Y);
+  Eigen::Matrix<float,Eigen::Dynamic,1> x1(1);
+  x1[0] = 1;
+  
+  Eigen::Matrix<float,Eigen::Dynamic,1> y0(1);
+  y0[0] = 1;
+  
+  Eigen::Matrix<float,1,1> dydx;
+  dydx = fun.Reverse(1, y0);
+  ROS_INFO("Reverse %f", dydx[0]);
 
+  dydx = fun.Forward(1, x1);
+  ROS_INFO("Forward %f", dydx[0]);
+}
+*/
 
+/*
 int main(int argc, char **argv){
   //feenableexcept(FE_INVALID | FE_OVERFLOW);
   ros::init(argc, argv, "search_bekker_params");
@@ -83,7 +112,7 @@ int main(int argc, char **argv){
   
   g_hybrid_model->initState(start_state);
   g_hybrid_model->step(0,0); //(X, Xt1, u);
-
+  
   for(unsigned i = 0; i < HybridDynamics::STATE_DIM; i++){
     y_Xd[i] = g_hybrid_model->state_[i];
   }
@@ -105,7 +134,19 @@ int main(int argc, char **argv){
   
   return 0;
 }
+*/
 
 
-
-
+int main(int argc, char **argv){
+  //feenableexcept(FE_INVALID | FE_OVERFLOW);
+  ros::init(argc, argv, "search_bekker_params");
+  ros::NodeHandle nh;
+  
+  
+  
+  init_tests();
+  //test_CV3_paths();
+    
+  train_model_on_dataset(.01f);
+  del_tests();
+}

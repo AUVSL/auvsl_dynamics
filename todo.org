@@ -23,6 +23,56 @@
   and not static sized. Which makes things a bit more
   difficutl for me. Nope, I found a simple way around it.
 
+* TODO Take derivative wrt sinkage over 6 second horizon
+  Need to do a forward pass with all input parameters,
+  including vehicle start state, and all tire velocities.
+  Then do reverse auto-diff but only wrt the sinkage param.
+
+  The problem is, if I do reverse auto diff in CppAD
+  It will calculated the derivative of the loss wrt every input.
+  Including the initial state and all the tire velocity commands.
+  Which is a significant amount of extra computation.
+
+  Here's what I'm gonna do. THe lazy way, just create a new auto diff
+  function every time. And then call forward_zero, then call reverse.
+  This is not working. Getting a NaN during call to reverse.
+  Need to google it and try to find out why I could be seeing a Nan.
+  
+  It has something to do with the conditionals, I believe.
+  Also, shouldn't reverse and forward mode return the same
+  results? They aren't. Will do a test. But also, both
+  forward and reverse seemed to be exploding so, the 
+  problem is more fundamental.
+
+  Lol, I did a stupid. Oh man.
+  Need to find out where to actually plugin the y0 then.
+  You dont. You just plug in x0 during forward(0, x0).
+  Forward and Reverse Derivatives now match.
+  
+  Gradient still exploding though.
+  Only some of the gradients. Hmm.
+  Lets remove all conditional operators as a test.
+  Still explodes.
+  Stops exploding when I remove the division used to calculate
+  slip_ratio. FUCK.
+  How do I deal with this? Add a constant to the denominator.
+  This is a bandaid, not a solution, still can divide by zero
+  if we're unlucky. It will serve as proof of concept
+  at least hopefully.
+  
+  With default params:
+  CV3 MARE lin: 0.3308356 
+  With optimized params:
+  CV3 MARE lin: 0.2217555
+  
+  
+  
+  When I use CppADCodeGen I can generate the full derivative, and then
+  possibly remove the calculations for derivatives that I don't need.
+  
+  
+  
+
 * TODO CppADCodeGen
   This is the big gun. Lets see if I can make it work
   for derivative wrt sinkage.
