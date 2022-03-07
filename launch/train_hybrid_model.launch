@@ -1,0 +1,4 @@
+<launch>
+  <rosparam file="$(find auvsl_dynamics)/config/params.yaml"/>
+  <node name="train_hybrid_model" pkg="auvsl_dynamics" type="train_hybrid_model_node" output="screen" launch-prefix=""/>
+</launch>
