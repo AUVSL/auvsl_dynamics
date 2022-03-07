@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string>
 #include <fenv.h>
+#include <tf/tf.h>
 
 #include "HybridDynamics.h"
 
@@ -174,7 +175,7 @@ void simulatePeriod(double start_time, float *X_start, float *X_end){
     }
   }
   
-  g_hybrid_model->init_state(X_start);  
+  g_hybrid_model->initState(X_start);  
   //g_hybrid_model->settle();
   
   float vl, vr;
@@ -185,7 +186,7 @@ void simulatePeriod(double start_time, float *X_start, float *X_end){
   }
   
   for(int i = 0; i < 21; i++){
-    X_end[i] = g_hybrid_model->vehicle_state[i];
+    X_end[i] = g_hybrid_model->state_[i];
   }
   
 }
@@ -401,12 +402,12 @@ int main(int argc, char **argv){
   ros::init(argc, argv, "auvsl_global_planner");
   ros::NodeHandle nh;  
 
-  HybridDynamics::init();
+  //HybridDynamics::init();
   HybridDynamics::start_log();
   
   g_hybrid_model = new HybridDynamics();
   
-  g_hybrid_model->init_state(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
+  g_hybrid_model->initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
   g_hybrid_model->settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
   
   ROS_INFO("CV3 Starting Timer");

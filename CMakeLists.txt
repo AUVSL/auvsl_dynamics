@@ -84,7 +84,7 @@ add_executable(test_dataset_node
 )
 
 target_link_libraries(test_dataset_node ${catkin_LIBRARIES})
-set_target_properties(test_dataset_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
+set_target_properties(test_dataset_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
 
 
 
@@ -106,69 +106,4 @@ add_executable(test_dynamics_node
 )
 
 target_link_libraries(test_dynamics_node ${catkin_LIBRARIES})
-set_target_properties(test_dynamics_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
-
-
-
-
-
-add_executable(verify_hybrid_model_node
-  src/verify_hybrid_model.cpp
-  src/HybridDynamics.cpp
-  src/utils.cpp
-  src/TireNetwork.cpp
-  src/VerifyModel.cpp
-  src/generated/forward_dynamics.cpp
-  src/generated/inertia_properties.cpp
-  src/generated/inverse_dynamics.cpp
-  src/generated/jacobians.cpp
-  src/generated/jsim.cpp
-  src/generated/miscellaneous.cpp
-  src/generated/transforms.cpp
-)
-
-target_link_libraries(verify_hybrid_model_node ${catkin_LIBRARIES})
-set_target_properties(verify_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
-
-
-
-
-add_executable(search_bekker_params_node
-  src/search_bekker_params.cpp
-  src/HybridDynamics.cpp
-  src/utils.cpp
-  src/TireNetwork.cpp
-  src/VerifyModel.cpp
-  src/generated/forward_dynamics.cpp
-  src/generated/inertia_properties.cpp
-  src/generated/inverse_dynamics.cpp
-  src/generated/jacobians.cpp
-  src/generated/jsim.cpp
-  src/generated/miscellaneous.cpp
-  src/generated/transforms.cpp
-)
-
-target_link_libraries(search_bekker_params_node ${catkin_LIBRARIES})
-set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
-
-
-
-
-add_executable(train_hybrid_model_node
-  src/train_hybrid_model.cpp
-  src/HybridDynamics.cpp
-  src/utils.cpp
-  src/TireNetwork.cpp
-  src/VerifyModel.cpp
-  src/generated/forward_dynamics.cpp
-  src/generated/inertia_properties.cpp
-  src/generated/inverse_dynamics.cpp
-  src/generated/jacobians.cpp
-  src/generated/jsim.cpp
-  src/generated/miscellaneous.cpp
-  src/generated/transforms.cpp
-)
-
-target_link_libraries(train_hybrid_model_node ${catkin_LIBRARIES})
-set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
-#set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-g -Wall -Wno-undef")
+set_target_properties(test_dynamics_node PROPERTIES COMPILE_FLAGS "-O3  -Wall -Wno-undef")

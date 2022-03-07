@@ -51,7 +51,7 @@ public:
   
   static std::ofstream log_file;
   static std::ofstream debug_file;
-  static const Scalar timestep; //The rate that nn_model operates at.
+  static Scalar timestep; //The rate that nn_model operates at.
   
   //angular and linear vel are expressed in the body frame (I think)
   //Quaternion is x,y,z,w

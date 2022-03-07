@@ -15,9 +15,9 @@ public:
   TireNetwork();
   ~TireNetwork();
 
-  static const int num_hidden_nodes = 16;
-  static const int num_in_features = 5;
-  static const int num_out_features = 3;
+  static const int num_hidden_nodes = 32;
+  static const int num_in_features = 8;
+  static const int num_out_features = 4;
   
   static void forward(const Eigen::Matrix<Scalar,num_in_features,1> &in_vec, Eigen::Matrix<Scalar,num_out_features,1> &out_vec);
   

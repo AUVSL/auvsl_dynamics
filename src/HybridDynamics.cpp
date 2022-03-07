@@ -33,6 +33,7 @@ const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,-9
 
 std::ofstream HybridDynamics::log_file;
 std::ofstream HybridDynamics::debug_file;
+Scalar HybridDynamics::timestep = .001;
 
 HybridDynamics::HybridDynamics(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
