@@ -11,8 +11,8 @@ df = pd.read_csv("/home/justin/xout.csv")
 plt.plot(df['x'], df['y'], color='b')
 plt.show()
 
-plt.plot(df['z'], color='r')
-plt.show()
+#plt.plot(df['z'], color='r')
+#plt.show()
 
 #plt.plot(df['vx'])
 # plt.plot(df['vy'])
