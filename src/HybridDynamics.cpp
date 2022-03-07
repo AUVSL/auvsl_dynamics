@@ -3,7 +3,10 @@
 #include "miscellaneous.h"
 #include "utils.h"
 #include <iit/rbd/robcogen_commons.h>
+#include <cppad/cppad.hpp>
+#include <cppad/utility/to_string.hpp>
 
+using CppAD::AD;
 
 
 using Jackal::rcg::tire_radius;
@@ -26,6 +29,7 @@ using Jackal::rcg::tz_rear_right_wheel;
 using Jackal::rcg::orderedJointIDs;
 
 
+const Scalar HybridDynamics::timestep = .005;
 const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,-9.81).finished();
 //const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,0).finished();
 
@@ -104,18 +108,11 @@ void HybridDynamics::settle(){
 void HybridDynamics::step(Scalar vl, Scalar vr){  
   Eigen::Matrix<Scalar,STATE_DIM,1> Xt1;
   Eigen::Matrix<Scalar,CNTRL_DIM,1> u;
-
-  if(vr == 0){
-    vr = 1e-5d;
-  }
-  if(vl == 0){
-    vl = 1e-5d;
-  }
   
   u(0) = vl;
   u(1) = vr;
   
-  const int num_steps = 10; //50*.001 = .05
+  const int num_steps = 10; //10*.005 = .05
   for(int ii = 0; ii < num_steps; ii++){
     state_[17] = state_[19] = u[0];
     state_[18] = state_[20] = u[1];
@@ -207,6 +204,8 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   Scalar sinkages[4];
   get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
   
+  //ROS_INFO("Sinkage %f", CppAD::Value(sinkages[i]));
+  
   //get the velocity of each tire contact point expressed in the contact point frame
   Eigen::Matrix<Scalar,3,1> cpt_vels[4];
   get_tire_cpt_vels(X, cpt_vels);
@@ -219,83 +218,26 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   //A smarter solution would be to permanently set the tire joint angles to zero
   //because those values literally change nothing about the simulation.
   //We're doing it: Joint positions are set to zero.
-  //Transform is needed to tire frame because joints are oriented to that z is the joint axis.
+  //Transform is needed to tire frame because joints are oriented so that z is the joint axis.
   
   Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
   Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
-  features[3] = bekker_params[0];
-  features[4] = bekker_params[1];
-  features[5] = bekker_params[2];
-  features[6] = bekker_params[3];
-  features[7] = bekker_params[4];
   
-  //log_value(sinkages);
+  Scalar literally_zero = 0;
   
   for(int ii = 0; ii < 4; ii++){
-    Scalar vel_x_tan = tire_radius*X[17+ii]; //17 is the idx that tire velocities start at.
-    Scalar slip_ratio;  //longitudinal slip
-    Scalar slip_angle;  //
-
-    if(vel_x_tan == 0){
-      if(cpt_vels[ii][0] == 0){
-        slip_ratio = 0;
-      }
-      else{
-        slip_ratio = 1. - (cpt_vels[ii][0]/1.0e-3);
-      }
-    }
-    else{
-      if(cpt_vels[ii][0] == 0){
-        slip_ratio = 1. - (1.0e-3/vel_x_tan);  
-      }
-      else{
-        slip_ratio = 1. - (cpt_vels[ii][0]/vel_x_tan);  
-      }
-    }
-    
-    if(cpt_vels[ii][0] == 0){
-      slip_angle = atan(cpt_vels[ii][1] / 1.0e-3);
-    }
-    else{
-      slip_angle = atan(cpt_vels[ii][1] / fabs(cpt_vels[ii][0]));
-    }
-    
-    if(sinkages[ii] < 0)
-      continue;
-    
-    features[0] = sinkages[ii];
-    features[1] = slip_ratio;
-    features[2] = slip_angle;
+    features[0] = (cpt_vels[ii][0]); //CppAD::abs
+    features[1] = (cpt_vels[ii][1]);
+    features[2] = cpt_vels[ii][2];
+    features[3] = (X[17+ii]);
+    features[4] = sinkages[ii];
     
     TireNetwork::forward(features, forces);
+
+    //Sign Corrections are needed
+    //CppAD::CondExpLt(cpt_vels[ii][0], literally_zero, forces[0], forces[0]);
     
     
-    // if(ii == 0){
-    //   Scalar values[4];
-    //   values[0] = X[17];
-    //   values[1] = slip_ratio;
-    //   values[2] = slip_angle;
-    //   values[3] = forces[0];
-    //   log_value(values);
-    // }
-    
-    if(X[17+ii] > 0){
-      forces[0] = forces[0];
-      forces[3] = forces[3];
-    }
-    else{
-      forces[0] = -forces[0];
-      forces[3] = -forces[3];      
-    }
-    
-    if(cpt_vels[ii][1] > 0){
-      forces[1] = -fabs(forces[1]);
-    }
-    else{
-      forces[1] = fabs(forces[1]);
-    }
-    
-    //forces[2] = std::min(forces[2], 0); //Fz should never point up
     
     Eigen::Matrix<Scalar,3,1> lin_force;
     Eigen::Matrix<Scalar,3,1> ang_force;
@@ -311,21 +253,19 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     //Convert from world orientation to tire_cpt orientation
     //So that reaction forces are oriented with the surface normal
     Eigen::Matrix<Scalar,3,1> temp_vel = cpt_rots[ii]*cpt_vels[ii];
-    //ang_force = cpt_rots[ii].transpose()*ang_force;
     
-    if(temp_vel[2] > 0){
-      lin_force[2] *= .1;
-    }
-    //lin_force[2] -= 100*cpt_vels[ii][2];
+    lin_force[2] = CppAD::CondExpGt(temp_vel[2], literally_zero, lin_force[2] * .1, lin_force[2]); //hack to damp out the vertical motion.
     
-    //lin_force = cpt_rots[ii].transpose()*lin_force;
+    lin_force[0] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[0]);
+    lin_force[1] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[1]);
+    lin_force[2] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[2]);
     
     Force wrench;
     wrench[0] = ang_force[0];
     wrench[1] = -ang_force[2];
     wrench[2] = ang_force[1];
-    wrench[3] = lin_force[0];
-    wrench[4] = -lin_force[2]; //forces[2];     //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
+    wrench[3] = lin_force[0];  //the different indices here is due to a rotation in coordinate frame.
+    wrench[4] = -lin_force[2]; //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
     wrench[5] = lin_force[1];
     
     ext_forces[orderedLinkIDs[ii+1]] = wrench;  
@@ -342,34 +282,32 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   Scalar ts = timestep;
   
   ODE(X, k1, u);
-  for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+.5*ts*k1[i];
-  temp_norm = sqrtf(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
+  temp = X + .5*ts*k1;
+  temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
   temp[1] /= temp_norm;
   temp[2] /= temp_norm;
   temp[3] /= temp_norm;
   
   ODE(temp, k2, u);
-  for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+.5*ts*k2[i];
-  temp_norm = sqrtf(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
+  temp = X + .5*ts*k2;
+  temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
   temp[1] /= temp_norm;
   temp[2] /= temp_norm;
   temp[3] /= temp_norm;
   
   ODE(temp, k3, u);
-  for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+ts*k3[i];
-  temp_norm = sqrtf(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
+  temp = X + ts*k3;
+  temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
   temp[1] /= temp_norm;
   temp[2] /= temp_norm;
   temp[3] /= temp_norm;
   
   ODE(temp, k4, u);
-  for(unsigned i = 0; i < STATE_DIM; i++){
-    Xt1[i] = X[i] + (ts/6.0)*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i]);
-  }
-  temp_norm = sqrtf(Xt1[0]*Xt1[0] + Xt1[1]*Xt1[1] + Xt1[2]*Xt1[2] + Xt1[3]*Xt1[3]);
+  Xt1 = X + (ts/6.0)*(k1 + 2*k2 + 2*k3 + k4);
+  temp_norm = CppAD::sqrt(Xt1[0]*Xt1[0] + Xt1[1]*Xt1[1] + Xt1[2]*Xt1[2] + Xt1[3]*Xt1[3]);
   Xt1[0] /= temp_norm;
   Xt1[1] /= temp_norm;
   Xt1[2] /= temp_norm;
@@ -383,7 +321,7 @@ void HybridDynamics::Euler(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Ma
   ODE(X, Xd, u);
   Xt1 = X + (Xd*ts);
   
-  Scalar temp_norm = sqrtf(Xt1[0]*Xt1[0] + Xt1[1]*Xt1[1] + Xt1[2]*Xt1[2] + Xt1[3]*Xt1[3]);
+  Scalar temp_norm = CppAD::sqrt(Xt1[0]*Xt1[0] + Xt1[1]*Xt1[1] + Xt1[2]*Xt1[2] + Xt1[3]*Xt1[3]);
   Xt1[0] /= temp_norm;
   Xt1[1] /= temp_norm;
   Xt1[2] /= temp_norm;
@@ -532,7 +470,7 @@ void HybridDynamics::log_vehicle_state(){
   log_file << state_[20] << '\n';
 }
 
-void HybridDynamics::log_value(Scalar *values){
+void HybridDynamics::log_value(float *values){
   debug_file << values[0] << ',';
   debug_file << values[1] << ',';
   debug_file << values[2] << ',';

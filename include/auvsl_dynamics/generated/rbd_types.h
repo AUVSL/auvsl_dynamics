@@ -4,13 +4,13 @@
 #include <iit/rbd/rbd.h>
 #include <iit/rbd/scalar_traits.h>
 #include <iit/rbd/InertiaMatrix.h>
-//#include <iit/robcogen/scalar/cppad.h>
+#include <iit/robcogen/scalar/cppad.h>
 
 namespace Jackal {
 namespace rcg {
 
-typedef typename iit::rbd::FloatTraits ScalarTraits;
-//typedef typename iit::robcogen::CppADFloatTraits ScalarTraits;
+  //typedef typename iit::rbd::DoubleTraits ScalarTraits;
+typedef typename iit::robcogen::CppADFloatTraits ScalarTraits;
 typedef typename ScalarTraits::Scalar Scalar;
 
 typedef iit::rbd::Core<Scalar> TypesGen;
