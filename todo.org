@@ -88,11 +88,15 @@
   
   
 
+* TODO Confirm Performance is the same
+  From float templated robcogen to CppAD templated Robcogen.
+  
+
 * TODO CppADCodeGen
   This is the big gun. Lets see if I can make it work
   for derivative wrt sinkage.
 
-* TODO Derivative wrt weights
+* DONE Derivative wrt weights
   Rewrite VerifyModel the functions getModelParams setModelParams.
   
 

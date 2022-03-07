@@ -64,6 +64,33 @@ include_directories(
 )
 
 
+
+
+
+
+
+add_executable(test_dataset_node
+  src/test_dataset.cpp
+  src/HybridDynamics.cpp
+  src/utils.cpp
+  src/TireNetwork.cpp
+  src/generated/forward_dynamics.cpp
+  src/generated/inertia_properties.cpp
+  src/generated/inverse_dynamics.cpp
+  src/generated/jacobians.cpp
+  src/generated/jsim.cpp
+  src/generated/miscellaneous.cpp
+  src/generated/transforms.cpp
+)
+
+target_link_libraries(test_dataset_node ${catkin_LIBRARIES})
+set_target_properties(test_dataset_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
+
+
+
+
+
+
 add_executable(test_dynamics_node
   src/test_dynamics_node.cpp
   src/HybridDynamics.cpp
