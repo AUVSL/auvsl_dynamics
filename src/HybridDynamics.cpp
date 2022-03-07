@@ -270,16 +270,6 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     
     TireNetwork::forward(features, forces);
     
-    
-    // if(ii == 0){
-    //   Scalar values[4];
-    //   values[0] = X[17];
-    //   values[1] = slip_ratio;
-    //   values[2] = slip_angle;
-    //   values[3] = forces[0];
-    //   log_value(values);
-    // }
-    
     if(X[17+ii] > 0){
       forces[0] = forces[0];
       forces[3] = forces[3];
