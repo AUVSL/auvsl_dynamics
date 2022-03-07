@@ -127,14 +127,67 @@ int main(int argc, char **argv){
 */
 
 //compare the input outputs to what happens in python
-void test_network(){
+Eigen::Matrix<Scalar,TireNetwork::num_out_features,1>  test_network(){
   Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> in_vec;
   in_vec << -3.94063,   -3.4051502, -1.79449,   -3.42353,    0.0734259;
   Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> out_vec;
   TireNetwork::forward(in_vec, out_vec);
   
-  ROS_INFO("Actual %f %f %f", CppAD::Value(out_vec[0]), CppAD::Value(out_vec[1]), CppAD::Value(out_vec[2]));
-  ROS_INFO("Expected  -240.41273  -435.0391  929.8925");
+  //ROS_INFO("Actual %f %f %f", CppAD::Value(out_vec[0]), CppAD::Value(out_vec[1]), CppAD::Value(out_vec[2]));
+  //ROS_INFO("Expected  -240.41273  -435.0391  929.8925");
+
+  return out_vec;
+}
+
+
+//Tests save load functions
+//Tests model get/set functions
+//Passes all 3 tests.
+void test_network_save_load_get_set(){
+  //network already exists in memory, no need to load first.
+  unsigned num_params = getNumWeights();
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> model_params(num_params);
+  Eigen::Matrix<float,Eigen::Dynamic,1> test_model_params(num_params);
+  
+  for(unsigned ii = 0; ii < num_params; ii++){
+    model_params(ii,0) = (float) ii;
+  }
+  
+  setModelParams(model_params);
+  getModelParams(test_model_params);
+  
+  for(unsigned ii = 0; ii < num_params; ii++){
+    if(fabs(CppAD::Value(model_params[ii]) - test_model_params[ii]) > 1e-4){
+      ROS_INFO("Test 1. Mismatch after set get at idx %u", ii);
+      return;
+    }
+  }
+  
+  Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> labels_before;
+  Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> labels_after;
+  
+  setModelParams(model_params);
+  labels_before = test_network();
+  saveHybridNetwork();
+  loadHybridNetwork();
+  labels_after = test_network();
+  getModelParams(test_model_params);
+
+  for(unsigned ii = 0; ii < num_params; ii++){
+    if(fabs(CppAD::Value(model_params[ii]) - test_model_params[ii]) > 1e-4){
+      ROS_INFO("Test 2. Mismatch after set get at idx %u", ii);
+      return;
+    }
+  }
+
+  for(unsigned ii = 0; ii < labels_after.size(); ii++){
+    if(CppAD::Value(CppAD::abs(labels_after[ii] - labels_before[ii])) > 1e-4){
+      ROS_INFO("Test 3. Mismatch test_network at idx %u", ii);
+      return;
+    }
+  }
+
+  
 }
 
 
@@ -144,21 +197,21 @@ int main(int argc, char **argv){
   ros::init(argc, argv, "train_hybrid_model");
   ros::NodeHandle nh;
 
-  g_hybrid_model = new HybridDynamics();
+  //g_hybrid_model = new HybridDynamics();
   
-  g_hybrid_model->start_log();
+  //g_hybrid_model->start_log();
   
-  g_hybrid_model->initState();
-  g_hybrid_model->settle();
-  for(int i = 0; i < 20;i++){
-    //  g_hybrid_model->step(1,1);
-  }
+  //g_hybrid_model->initState();
+  //g_hybrid_model->settle();
+  // for(int i = 0; i < 20;i++){
+  //   g_hybrid_model->step(1,1);
+  // }
   
-  g_hybrid_model->stop_log();
-  
-  //init_tests();
+  //g_hybrid_model->stop_log();
+  init_tests();
+  //test_network_save_load();
   //test_CV3_paths();
-  //train_model_on_dataset(.001f);
-  //del_tests();
+  train_model_on_dataset(.001f);
+  del_tests();
 }
 

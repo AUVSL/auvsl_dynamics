@@ -35,10 +35,19 @@ void del_tests();
 unsigned getNumWeights();
 
 template <typename MatrixType>
-void setModelWeights(const Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params, MatrixType weights, unsigned &cnt);
-void setModelParams(const Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params);
+void setModelWeights(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params, MatrixType &weights, unsigned &cnt);
+void setModelParams(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params);
 
 
 template <typename MatrixType>
-void getModelWeights(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, const MatrixType weights, unsigned &cnt);
+void getModelWeights(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, const MatrixType &weights, unsigned &cnt);
 void getModelParams(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params);
+
+
+template <typename MatrixType>
+void writeMatrixToFile(std::ofstream &save_file, const MatrixType &matrix);
+void saveHybridNetwork();
+
+template <typename MatrixType>
+void loadMatrixFromFile(std::ifstream &save_file, MatrixType &matrix);
+void loadHybridNetwork();

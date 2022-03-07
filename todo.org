@@ -1,4 +1,19 @@
 
+* Cool Compiler Flags
+  -O3 obviously
+  -DNDEBUG
+  -march=native
+  -fopenmp
+
+* CV3 Dataset Speed Benchmark
+  Flags:                        Duration: 
+  -O3                           103s
+  -O3 -march=native -DNDEBUG    77s
+  += fopenmp                    79s
+  Conclusion. No fopenmp
+   
+
+
 * Big Deal: Can run at bigger timestep with RK4. Interesting.
   Still getting good accuracy over test datasets at .005s timestep
   When previously it was .001s. Very good. May not work as well with

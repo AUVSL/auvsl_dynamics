@@ -1,2 +1,3 @@
 xout_log_file_name: "/home/justin/xout.csv"
 debug_log_file_name: "/home/justin/log.csv" 
+hybrid_network_file_name: "/home/justin/code/AUVSL_ROS/src/auvsl_dynamics/data/hybrid_net.mat"

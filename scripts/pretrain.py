@@ -53,12 +53,6 @@ def process_data():
 
     df = pd.read_csv("../data/tire_data.csv")
     data_x = np.array(df[in_features])
-    #data_temp = np.zeros((data_x.shape[0], 4))
-    #data_temp[:,0] = data_x[0] - data_x[3]
-    #data_temp[:,1] = data_x[1]
-    #data_temp[:,2] = data_x[2]
-    #data_temp[:,3] = data_x[4]
-    
     data_y = np.array(df[out_features])
     
     data_x = input_scaler.fit_transform(data_x)

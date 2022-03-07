@@ -17,6 +17,7 @@ generate_messages(
    geometry_msgs
  )
 
+
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################
@@ -122,3 +123,25 @@ add_executable(search_bekker_params_node
 
 target_link_libraries(search_bekker_params_node ${catkin_LIBRARIES})
 set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
+
+
+
+
+add_executable(train_hybrid_model_node
+  src/train_hybrid_model.cpp
+  src/HybridDynamics.cpp
+  src/utils.cpp
+  src/TireNetwork.cpp
+  src/VerifyModel.cpp
+  src/generated/forward_dynamics.cpp
+  src/generated/inertia_properties.cpp
+  src/generated/inverse_dynamics.cpp
+  src/generated/jacobians.cpp
+  src/generated/jsim.cpp
+  src/generated/miscellaneous.cpp
+  src/generated/transforms.cpp
+)
+
+target_link_libraries(train_hybrid_model_node ${catkin_LIBRARIES})
+set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
+#set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-g -Wall -Wno-undef")

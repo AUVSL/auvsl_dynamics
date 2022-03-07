@@ -223,14 +223,21 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
   Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
   
+  Scalar literally_zero = 0;
+  
   for(int ii = 0; ii < 4; ii++){
-    features[0] = cpt_vels[ii][0];
-    features[1] = cpt_vels[ii][1];
+    features[0] = (cpt_vels[ii][0]); //CppAD::abs
+    features[1] = (cpt_vels[ii][1]);
     features[2] = cpt_vels[ii][2];
-    features[3] = X[17+ii];
+    features[3] = (X[17+ii]);
     features[4] = sinkages[ii];
     
     TireNetwork::forward(features, forces);
+
+    //Sign Corrections are needed
+    //CppAD::CondExpLt(cpt_vels[ii][0], literally_zero, forces[0], forces[0]);
+    
+    
     
     Eigen::Matrix<Scalar,3,1> lin_force;
     Eigen::Matrix<Scalar,3,1> ang_force;
@@ -275,7 +282,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   Scalar ts = timestep;
   
   ODE(X, k1, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+.5*ts*k1[i];
   temp = X + .5*ts*k1;
   temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
@@ -284,7 +290,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   temp[3] /= temp_norm;
   
   ODE(temp, k2, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+.5*ts*k2[i];
   temp = X + .5*ts*k2;
   temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
@@ -293,7 +298,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   temp[3] /= temp_norm;
   
   ODE(temp, k3, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++) temp[i] = X[i]+ts*k3[i];
   temp = X + ts*k3;
   temp_norm = CppAD::sqrt(temp[0]*temp[0] + temp[1]*temp[1] + temp[2]*temp[2] + temp[3]*temp[3]);
   temp[0] /= temp_norm;
@@ -302,9 +306,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   temp[3] /= temp_norm;
   
   ODE(temp, k4, u);
-  //for(unsigned i = 0; i < STATE_DIM; i++){
-  //  Xt1[i] = X[i] + (ts/6.0)*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i]);
-  //}
   Xt1 = X + (ts/6.0)*(k1 + 2*k2 + 2*k3 + k4);
   temp_norm = CppAD::sqrt(Xt1[0]*Xt1[0] + Xt1[1]*Xt1[1] + Xt1[2]*Xt1[2] + Xt1[3]*Xt1[3]);
   Xt1[0] /= temp_norm;
@@ -469,7 +470,7 @@ void HybridDynamics::log_vehicle_state(){
   log_file << state_[20] << '\n';
 }
 
-void HybridDynamics::log_value(Scalar *values){
+void HybridDynamics::log_value(float *values){
   debug_file << values[0] << ',';
   debug_file << values[1] << ',';
   debug_file << values[2] << ',';

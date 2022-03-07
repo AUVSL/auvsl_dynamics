@@ -51,4 +51,4 @@ void TireNetwork::forward(const Eigen::Matrix<Scalar,num_in_features,1> &in_vec,
 
 
 
-
+#include "TireNetworkWeights.cpp"
