@@ -23,7 +23,7 @@
   and not static sized. Which makes things a bit more
   difficutl for me. Nope, I found a simple way around it.
 
-* TODO Take derivative wrt sinkage over 6 second horizon
+* DONE Take derivative wrt sinkage over 6 second horizon
   Need to do a forward pass with all input parameters,
   including vehicle start state, and all tire velocities.
   Then do reverse auto-diff but only wrt the sinkage param.
@@ -76,6 +76,10 @@
 * TODO CppADCodeGen
   This is the big gun. Lets see if I can make it work
   for derivative wrt sinkage.
+
+* TODO Derivative wrt weights
+  Rewrite VerifyModel the functions getModelParams setModelParams.
+  
 
 * Theres a lot I need to understand:
 ** DONE Compute f_ext in the frame of each tire

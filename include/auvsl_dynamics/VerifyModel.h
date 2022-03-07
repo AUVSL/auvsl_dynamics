@@ -30,3 +30,15 @@ void train_model_on_dataset(float lr);
 void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params);
 void init_tests();
 void del_tests();
+
+
+unsigned getNumWeights();
+
+template <typename MatrixType>
+void setModelWeights(const Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params, MatrixType weights, unsigned &cnt);
+void setModelParams(const Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params);
+
+
+template <typename MatrixType>
+void getModelWeights(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, const MatrixType weights, unsigned &cnt);
+void getModelParams(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params);
