@@ -3,7 +3,7 @@
 
 //Good old fashioned spaghetti code. Enjoy.
 
-#define TIME_HORIZON 2.0f
+#define TIME_HORIZON 6.0f
 
 HybridDynamics *g_hybrid_model;
 Scalar z_stable;

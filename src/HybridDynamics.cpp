@@ -29,7 +29,7 @@ using Jackal::rcg::tz_rear_right_wheel;
 using Jackal::rcg::orderedJointIDs;
 
 
-const Scalar HybridDynamics::timestep = .005;
+const Scalar HybridDynamics::timestep = .001;
 const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,-9.81).finished();
 //const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,0).finished();
 
@@ -42,11 +42,20 @@ HybridDynamics::HybridDynamics(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
   
   //For more information on these, see TerrainMap.cpp and TerrainMap.h
-  bekker_params[0] = 29.76;
+  
+  bekker_params[0] = 29.76;           //kc
+  bekker_params[1] = 2083;            //kphi
+  bekker_params[2] = .8;              //n0
+  bekker_params[3] = 0;               //n1
+  bekker_params[4] = 22.5*M_PI/180.0; //phi
+  
+  /*
+  bekker_params[0] = 29.760115;
   bekker_params[1] = 2083;
-  bekker_params[2] = .8;
-  bekker_params[3] = 0;
-  bekker_params[4] = 22.5*M_PI/180.0;
+  bekker_params[2] = .806650;
+  bekker_params[3] = .134681;
+  bekker_params[4] = .462878;
+  */
   
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);
@@ -112,15 +121,15 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
   u(0) = vl;
   u(1) = vr;
   
-  const int num_steps = 10; //10*.005 = .05
+  const int num_steps = 50; //10*.005 = .05
   for(int ii = 0; ii < num_steps; ii++){
     state_[17] = state_[19] = u[0];
     state_[18] = state_[20] = u[1];
     
-    RK4(state_, Xt1, u);
-    //Euler(state_, Xt1, u);
+    //RK4(state_, Xt1, u);
+    Euler(state_, Xt1, u);
     state_ = Xt1;
-    log_vehicle_state();
+    //log_vehicle_state();
   }
 }
 
@@ -192,10 +201,7 @@ void HybridDynamics::get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &
   //Only interested in the linear velocities of the cpt points. Maybe we can include angular later.
 }
 
-//Going to assume flat terrain for now.
-//Going to use a pretrained network.
-//Will need to apply a rotation to the calculated force because the tire frame rotates with the tire :(
-//So essentially the rotation needs to undo the tire frame rotation.
+
 void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
   Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
   Eigen::Matrix<Scalar,3,3> cpt_rots[4];    //world orientation of cpt frames
@@ -203,8 +209,6 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   
   Scalar sinkages[4];
   get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
-  
-  //ROS_INFO("Sinkage %f", CppAD::Value(sinkages[i]));
   
   //get the velocity of each tire contact point expressed in the contact point frame
   Eigen::Matrix<Scalar,3,1> cpt_vels[4];
@@ -222,22 +226,38 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   
   Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
   Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
+  features[3] = bekker_params[0];
+  features[4] = bekker_params[1];
+  features[5] = bekker_params[2];
+  features[6] = bekker_params[3];
+  features[7] = bekker_params[4];
   
-  Scalar literally_zero = 0;
+  //log_value(sinkages);
   
   for(int ii = 0; ii < 4; ii++){
-    features[0] = (cpt_vels[ii][0]); //CppAD::abs
-    features[1] = (cpt_vels[ii][1]);
-    features[2] = cpt_vels[ii][2];
-    features[3] = (X[17+ii]);
-    features[4] = sinkages[ii];
+    Scalar slip_ratio;  //longitudinal slip
+    Scalar slip_angle;  //
+    
+    const Scalar small_val = 1e-3f;
+    const Scalar literally_zero = 0;
+    
+    //17 is the idx that tire velocities start at.
+    Scalar vel_x_tan = tire_radius*CppAD::CondExpEq(X[17+ii], literally_zero, small_val, X[17+ii]);
+    Scalar tire_vx = CppAD::CondExpEq(cpt_vels[ii][0], literally_zero, small_val, cpt_vels[ii][0]);
+    
+    slip_ratio = 1.0 - (tire_vx / vel_x_tan);
+    slip_angle = CppAD::atan(cpt_vels[ii][1] / CppAD::abs(tire_vx));
+    
+    features[0] = sinkages[ii];
+    features[1] = slip_ratio;
+    features[2] = slip_angle;
     
     TireNetwork::forward(features, forces);
-
-    //Sign Corrections are needed
-    //CppAD::CondExpLt(cpt_vels[ii][0], literally_zero, forces[0], forces[0]);
     
+    forces[0] = CppAD::CondExpGt(vel_x_tan, literally_zero, forces[0], -forces[0]);
+    forces[1] = CppAD::CondExpGt(cpt_vels[ii][1], literally_zero, -CppAD::abs(forces[1]), CppAD::abs(forces[1]));
     
+    //forces[2] = std::min(forces[2], 0); //Fz should never point up
     
     Eigen::Matrix<Scalar,3,1> lin_force;
     Eigen::Matrix<Scalar,3,1> ang_force;
@@ -254,7 +274,8 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     //So that reaction forces are oriented with the surface normal
     Eigen::Matrix<Scalar,3,1> temp_vel = cpt_rots[ii]*cpt_vels[ii];
     
-    lin_force[2] = CppAD::CondExpGt(temp_vel[2], literally_zero, lin_force[2] * .1, lin_force[2]); //hack to damp out the vertical motion.
+    //ang_force = cpt_rots[ii].transpose()*ang_force;
+    lin_force[2] = CppAD::CondExpGt(temp_vel[2], literally_zero, lin_force[2] * .1, lin_force[2]);
     
     lin_force[0] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[0]);
     lin_force[1] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[1]);
@@ -271,6 +292,9 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     ext_forces[orderedLinkIDs[ii+1]] = wrench;  
   }
 }
+
+
+
 
 void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xt1, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u){
   Eigen::Matrix<Scalar,STATE_DIM,1> temp;
@@ -434,10 +458,11 @@ void HybridDynamics::start_log(){
 
   ros::param::get("/debug_log_file_name", filename);
   debug_file.open(filename.c_str());
-  debug_file << "zr1,zr2,zr3,zr4\n";
+  debug_file << "kc,kphi,n0,n1,phi\n";
 }
 
 void HybridDynamics::log_vehicle_state(){
+
   if(!log_file.is_open()){
     return;
   }
@@ -468,13 +493,15 @@ void HybridDynamics::log_vehicle_state(){
   log_file << state_[18] << ',';
   log_file << state_[19] << ',';
   log_file << state_[20] << '\n';
+
 }
 
 void HybridDynamics::log_value(float *values){
   debug_file << values[0] << ',';
   debug_file << values[1] << ',';
   debug_file << values[2] << ',';
-  debug_file << values[3] << '\n';
+  debug_file << values[3] << ',';
+  debug_file << values[4] << '\n';
 }
 
 void HybridDynamics::stop_log(){

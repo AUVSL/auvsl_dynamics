@@ -49,6 +49,4 @@ void TireNetwork::forward(const Eigen::Matrix<Scalar,num_in_features,1> &in_vec,
   out_vec = layer4_out.cwiseProduct(out_std) + out_mean;
 }
 
-
-
 #include "TireNetworkWeights.cpp"
