@@ -212,7 +212,7 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
   
   ROS_INFO("Loss %f", CppAD::Value(lin_err));
 
-  if(fabs(CppAD::Value(lin_err)) > 10){
+  if(fabs(CppAD::Value(lin_err)) > 10 || CppAD::isnan(lin_err)){
     return; //hack. If this conditions triggers, something bad happened during the forward pass. So ignore.
   }
   
@@ -223,7 +223,7 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
   ROS_INFO("dmodel_params %f %f %f %f %f", dmodel_params[0], dmodel_params[1], dmodel_params[2], dmodel_params[3], dmodel_params[4]);
 
   for(int ii = 0; ii < 5; ii++){
-    if(fabs(dmodel_params[ii]) > 10){
+    if(fabs(dmodel_params[ii]) > 10 || CppAD::isnan(dmodel_params[ii])){
       dmodel_params[0] = 0;
       dmodel_params[1] = 0;
       dmodel_params[2] = 0;

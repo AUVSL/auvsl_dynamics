@@ -121,4 +121,5 @@ add_executable(search_bekker_params_node
 )
 
 target_link_libraries(search_bekker_params_node ${catkin_LIBRARIES})
-set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
+set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -march=native -DNDEBUG -g -Wall -Wno-undef")
+#set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
