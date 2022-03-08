@@ -201,165 +201,6 @@ void HybridDynamics::get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &
   //Only interested in the linear velocities of the cpt points. Maybe we can include angular later.
 }
 
-//Going to assume flat terrain for now.
-//Going to use a pretrained network.
-//Will need to apply a rotation to the calculated force because the tire frame rotates with the tire :(
-//So essentially the rotation needs to undo the tire frame rotation.
-/*
-void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
-  Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
-  Eigen::Matrix<Scalar,3,3> cpt_rots[4];    //world orientation of cpt frames
-  get_tire_cpts(X, cpt_points, cpt_rots);
-  
-  Scalar sinkages[4];
-  get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
-  
-  //ROS_INFO("Sinkage %f", CppAD::Value(sinkages[i]));
-  
-  //get the velocity of each tire contact point expressed in the contact point frame
-  Eigen::Matrix<Scalar,3,1> cpt_vels[4];
-  get_tire_cpt_vels(X, cpt_vels);
-  
-  //We now have sinkage and velocity of each tire contact point
-  //Next we need to compute tire-soil reaction forces
-  //Then we will transform these forces into the body frame of each tire
-  //Due to the stupid way that the tire joint frame transforms are defined we
-  //will need a transform that undos the rotation of the tire.
-  //A smarter solution would be to permanently set the tire joint angles to zero
-  //because those values literally change nothing about the simulation.
-  //We're doing it: Joint positions are set to zero.
-  //Transform is needed to tire frame because joints are oriented so that z is the joint axis.
-  
-  Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
-  Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
-  features[3] = bekker_params[0];
-  features[4] = bekker_params[1];
-  features[5] = bekker_params[2];
-  features[6] = bekker_params[3];
-  features[7] = bekker_params[4];
-  
-  //log_value(sinkages);
-  
-  for(int ii = 0; ii < 4; ii++){
-    Scalar vel_x_tan = tire_radius*X[17+ii]; //17 is the idx that tire velocities start at.
-    Scalar slip_ratio;  //longitudinal slip
-    Scalar slip_angle;  //
-    
-    const Scalar small_val = 1e-3f;
-    const Scalar literally_zero = 0;
-    
-    Scalar cpt_vx = CppAD::CondExpEq(cpt_vels[ii][0], literally_zero, small_val, cpt_vels[ii][0]); //prevent divide by zero and maintain 
-    vel_x_tan = CppAD::CondExpEq(vel_x_tan, literally_zero, small_val, vel_x_tan);
-    slip_ratio = 1.0 - (cpt_vx / vel_x_tan);
-    
-    slip_angle = CppAD::atan(cpt_vels[ii][1] / CppAD::abs(cpt_vx));
-        
-    features[0] = sinkages[ii];
-    features[1] = slip_ratio;
-    features[2] = slip_angle;
-    
-    TireNetwork::forward(features, forces);
-    
-    forces[0] = CppAD::CondExpGt(vel_x_tan, cpt_vels[ii][0], CppAD::abs(forces[0]), -CppAD::abs(forces[0]));
-    forces[1] = CppAD::CondExpGt(cpt_vels[ii][1], literally_zero, -CppAD::abs(forces[1]), CppAD::abs(forces[1]));
-    
-    //forces[2] = std::min(forces[2], 0); //Fz should never point up
-    
-    Eigen::Matrix<Scalar,3,1> lin_force;
-    Eigen::Matrix<Scalar,3,1> ang_force;
-    
-    lin_force[0] = forces[0];
-    lin_force[1] = forces[1];
-    lin_force[2] = forces[2];
-    
-    ang_force[0] = 0;
-    ang_force[1] = 0; //forces[3];
-    ang_force[2] = 0;
-    
-    //Convert from world orientation to tire_cpt orientation
-    //So that reaction forces are oriented with the surface normal
-    Eigen::Matrix<Scalar,3,1> temp_vel = cpt_rots[ii]*cpt_vels[ii];
-    
-    //ang_force = cpt_rots[ii].transpose()*ang_force;
-    lin_force[2] = CppAD::CondExpGt(temp_vel[2], literally_zero, lin_force[2] * .1, lin_force[2]);
-    
-    lin_force[0] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[0]);
-    lin_force[1] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[1]);
-    lin_force[2] = CppAD::CondExpLt(sinkages[ii], literally_zero, literally_zero, lin_force[2]);
-    
-    Force wrench;
-    wrench[0] = ang_force[0];
-    wrench[1] = -ang_force[2];
-    wrench[2] = ang_force[1];
-    wrench[3] = lin_force[0];  //the different indices here is due to a rotation in coordinate frame.
-    wrench[4] = -lin_force[2]; //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
-    wrench[5] = lin_force[1];
-    
-    ext_forces[orderedLinkIDs[ii+1]] = wrench;  
-  }
-}
-*/
-
-//DUmmy function with no conditionals. Just a test.
-/*
-void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
-  Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
-  Eigen::Matrix<Scalar,3,3> cpt_rots[4];    //world orientation of cpt frames
-  get_tire_cpts(X, cpt_points, cpt_rots);
-  
-  Scalar sinkages[4];
-  get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
-
-  Eigen::Matrix<Scalar,3,1> cpt_vels[4];
-  get_tire_cpt_vels(X, cpt_vels);
-  
-  Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
-  Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
-  features[3] = bekker_params[0];
-  features[4] = bekker_params[1];
-  features[5] = bekker_params[2];
-  features[6] = bekker_params[3];
-  features[7] = bekker_params[4];
-  
-  for(int ii = 0; ii < 4; ii++){
-    const Scalar small_val = 1e-3f;
-    const Scalar literally_zero = 0;
-    
-    Scalar vel_x_tan = tire_radius*X[17+ii];
-    Scalar slip_ratio = vel_x_tan - cpt_vels[ii][0];
-    
-    Eigen::Matrix<Scalar,3,1> lin_force;
-    Eigen::Matrix<Scalar,3,1> ang_force;
-    
-    features[0] = sinkages[ii];
-    features[1] = slip_ratio;
-    features[2] = 0.0f;
-    
-    TireNetwork::forward(features, forces);
-    
-    lin_force[0] = forces[0];
-    lin_force[1] = 0; //X[17+ii];
-    lin_force[2] = forces[2];
-    
-    ang_force[0] = 0;
-    ang_force[1] = 0;
-    ang_force[2] = 0;
-    
-    Force wrench;
-    wrench[0] = ang_force[0];
-    wrench[1] = -ang_force[2];
-    wrench[2] = ang_force[1];
-    wrench[3] = lin_force[0];  //the different indices here is due to a rotation in coordinate frame.
-    wrench[4] = -lin_force[2]; //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
-    wrench[5] = lin_force[1];
-    
-    ext_forces[orderedLinkIDs[ii+1]] = wrench;  
-  }
-  
-}
-*/
-
-
 
 void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
   Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
@@ -394,23 +235,26 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   //log_value(sinkages);
   
   for(int ii = 0; ii < 4; ii++){
-    Scalar vel_x_tan = tire_radius*X[17+ii]; //17 is the idx that tire velocities start at.
     Scalar slip_ratio;  //longitudinal slip
     Scalar slip_angle;  //
     
-    const Scalar small_val = 1e-1f;
+    const Scalar small_val = 1e-3f;
     const Scalar literally_zero = 0;
     
-    slip_ratio = 1.0 - (cpt_vels[ii][0] / (vel_x_tan + small_val));
-    slip_angle = CppAD::atan(cpt_vels[ii][1] / (CppAD::abs(cpt_vels[ii][0]) + small_val));
-        
+    //17 is the idx that tire velocities start at.
+    Scalar vel_x_tan = tire_radius*CppAD::CondExpEq(X[17+ii], literally_zero, small_val, X[17+ii]);
+    Scalar tire_vx = CppAD::CondExpEq(cpt_vels[ii][0], literally_zero, small_val, cpt_vels[ii][0]);
+    
+    slip_ratio = 1.0 - (tire_vx / vel_x_tan);
+    slip_angle = CppAD::atan(cpt_vels[ii][1] / CppAD::abs(tire_vx));
+    
     features[0] = sinkages[ii];
     features[1] = slip_ratio;
     features[2] = slip_angle;
     
     TireNetwork::forward(features, forces);
     
-    forces[0] = CppAD::CondExpGt(vel_x_tan, cpt_vels[ii][0], CppAD::abs(forces[0]), -CppAD::abs(forces[0]));
+    forces[0] = CppAD::CondExpGt(vel_x_tan, literally_zero, forces[0], -forces[0]);
     forces[1] = CppAD::CondExpGt(cpt_vels[ii][1], literally_zero, -CppAD::abs(forces[1]), CppAD::abs(forces[1]));
     
     //forces[2] = std::min(forces[2], 0); //Fz should never point up
