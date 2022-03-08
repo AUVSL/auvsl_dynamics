@@ -68,9 +68,9 @@ include_directories(
 
 
 
-
-add_executable(test_dataset_node
-  src/test_dataset.cpp
+add_executable(verify_hybrid_model_node
+  src/verify_hybrid_model.cpp
+  src/VerifyModel.cpp
   src/HybridDynamics.cpp
   src/utils.cpp
   src/TireNetwork.cpp
@@ -83,27 +83,5 @@ add_executable(test_dataset_node
   src/generated/transforms.cpp
 )
 
-target_link_libraries(test_dataset_node ${catkin_LIBRARIES})
-set_target_properties(test_dataset_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
-
-
-
-
-
-
-add_executable(test_dynamics_node
-  src/test_dynamics_node.cpp
-  src/HybridDynamics.cpp
-  src/utils.cpp
-  src/TireNetwork.cpp
-  src/generated/forward_dynamics.cpp
-  src/generated/inertia_properties.cpp
-  src/generated/inverse_dynamics.cpp
-  src/generated/jacobians.cpp
-  src/generated/jsim.cpp
-  src/generated/miscellaneous.cpp
-  src/generated/transforms.cpp
-)
-
-target_link_libraries(test_dynamics_node ${catkin_LIBRARIES})
-set_target_properties(test_dynamics_node PROPERTIES COMPILE_FLAGS "-O3  -Wall -Wno-undef")
+target_link_libraries(verify_hybrid_model_node ${catkin_LIBRARIES})
+set_target_properties(verify_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")

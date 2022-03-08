@@ -42,6 +42,8 @@ std::vector<ODOM_LINE> odom_vec;
 std::vector<GT_LINE> gt_vec;
 std::vector<IMU_LINE> imu_vec;
 
+float z_stable;
+
 int readOdomFile(std::ifstream &odom_file, ODOM_LINE &odom_line){
   char comma;
   int cmd_mode;    //ignore
@@ -175,8 +177,7 @@ void simulatePeriod(double start_time, float *X_start, float *X_end){
     }
   }
   
-  g_hybrid_model->initState(X_start);  
-  //g_hybrid_model->settle();
+  g_hybrid_model->initStateCOM(X_start);
   
   float vl, vr;
   for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < 6; idx++){
@@ -256,7 +257,7 @@ void simulateFile(float &lin_err_sum_ret, float &ang_err_sum_ret, unsigned &coun
     
     Xn[0] = gt_vec[i].x;
     Xn[1] = gt_vec[i].y;
-    Xn[2] = .16;
+    Xn[2] = z_stable;
     
     initial_quat.setRPY(0,0,gt_vec[i].yaw);
     initial_quat = initial_quat.normalize();
@@ -300,7 +301,10 @@ void simulateFile(float &lin_err_sum_ret, float &ang_err_sum_ret, unsigned &coun
     for(j = i; (gt_vec[j].ts - time) < 6.0f && j < gt_vec.size(); j++){}
         
     getDisplacement(i, j, lin_displacement, ang_displacement);
-      
+    
+    ROS_INFO("x_err: %f    %f", Xn1[0], gt_vec[j].x);
+    ROS_INFO("y_err: %f    %f", Xn1[1], gt_vec[j].y);
+    
     x_err = Xn1[0] - gt_vec[j].x;
     y_err = Xn1[1] - gt_vec[j].y;
     
@@ -328,7 +332,7 @@ void simulateFile(float &lin_err_sum_ret, float &ang_err_sum_ret, unsigned &coun
     trans_sum += rel_lin_err;
     ang_sum += rel_ang_err;
     
-    //break;
+    break;
   }
   
   ROS_INFO(" ");
@@ -363,7 +367,7 @@ void test_CV3_paths(){
   log_csv << "lin_err,ang_err\n";
   
   //Remember this needs to start at 1.
-  for(int jj = 1; jj <= 144; jj++){
+  for(int jj = 1; jj <= 1; jj++){
     memset(odom_fn, 0, 100);
     sprintf(odom_fn, "/home/justin/Downloads/CV3/extracted_data/odometry/%04d_odom_data.txt", jj);
     ROS_INFO("Reading Odom File %s", odom_fn);
@@ -409,14 +413,17 @@ int main(int argc, char **argv){
   
   g_hybrid_model->initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
   g_hybrid_model->settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
+  z_stable = g_hybrid_model->state_[6];
+  ROS_INFO("z stable %f", z_stable);
+  
   
   ROS_INFO("CV3 Starting Timer");
   ros::Time start_time = ros::Time::now();
-  test_CV3_paths();
+  //test_CV3_paths();
   ros::Duration total_run_time = ros::Time::now() - start_time;
   ROS_INFO("CV3 Total Runtime %d", total_run_time.sec);
   
-  
+  /*
   load_files(
 "/home/justin/Downloads/LD3/extracted_data/odometry/0001_odom_data.txt",
 "/home/justin/Downloads/LD3/extracted_data/imu/0001_imu_data.txt",
@@ -432,7 +439,8 @@ int main(int argc, char **argv){
   ROS_INFO("LD3 MARE lin: %f     ang: %f", rel_lin_err/(float)count, rel_ang_err/(float)count);  
   total_run_time = ros::Time::now() - start_time;
   ROS_INFO("LD3 Total Runtime %d", total_run_time.sec);
-  
+  */
+
   HybridDynamics::stop_log();
   
   return 0;

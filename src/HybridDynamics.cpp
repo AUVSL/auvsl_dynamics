@@ -95,7 +95,7 @@ void HybridDynamics::initStateCOM(Scalar *start_state){
 
 void HybridDynamics::settle(){
   //reach equillibrium sinkage.
-  for(int i = 0; i < 20; i++){
+  for(int i = 0; i < 200; i++){
     step(0,0);
   }
 }
@@ -116,7 +116,7 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
   u(0) = vl;
   u(1) = vr;
   
-  const int num_steps = 10; //50*.001 = .05
+  const int num_steps = 50; //50*.001 = .05
   for(int ii = 0; ii < num_steps; ii++){
     state_[17] = state_[19] = u[0];
     state_[18] = state_[20] = u[1];
@@ -124,7 +124,7 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     RK4(state_, Xt1, u);
     //Euler(state_, Xt1, u);
     state_ = Xt1;
-    log_vehicle_state();
+    //log_vehicle_state();
   }
 }
 
