@@ -29,6 +29,8 @@ using Jackal::rcg::tz_rear_right_wheel;
 using Jackal::rcg::orderedJointIDs;
 
 
+const unsigned HybridDynamics::STATE_DIM;
+const unsigned HybridDynamics::CNTRL_DIM;
 const Scalar HybridDynamics::timestep = .001;
 const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,-9.81).finished();
 //const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,0).finished();
@@ -77,14 +79,23 @@ void HybridDynamics::initState(Scalar *start_state){
   }
 }
 
-//velocities expressed in COM frame. more intuitive.
 void HybridDynamics::initStateCOM(Scalar *start_state){
+  Eigen::Matrix<Scalar,HybridDynamics::STATE_DIM,1> start;
+  for(int i = 0; i < HybridDynamics::STATE_DIM; i++){
+    start[i] = start_state[i];
+  }
+  
+  initStateCOM(start);
+}
+
+void HybridDynamics::initStateCOM(Eigen::Matrix<Scalar,HybridDynamics::STATE_DIM,1> start_state){
+  //velocities expressed in COM frame. more intuitive.
   Jackal::rcg::Vector3 com_pos = Jackal::rcg::getWholeBodyCOM(inertias, h_transforms);
   
   Eigen::Matrix<Scalar,3,1> base_lin_vel;
   Eigen::Matrix<Scalar,3,1> com_lin_vel(start_state[14], start_state[15], start_state[16]);
   Eigen::Matrix<Scalar,3,1> ang_vel(start_state[11], start_state[12], start_state[13]);
-
+  
   Eigen::Matrix<Scalar,3,3> r_ss;
   r_ss << 0.,        -com_pos[2], com_pos[1],
           com_pos[2], 0.,        -com_pos[0],
@@ -97,11 +108,11 @@ void HybridDynamics::initStateCOM(Scalar *start_state){
   for(int i = 0; i < STATE_DIM; i++){
     base_state[i] = start_state[i];
   }
-
+  
   base_state[14] = base_lin_vel[0];
   base_state[15] = base_lin_vel[1];
   base_state[16] = base_lin_vel[2];
-
+  
   initState(base_state);
 }
 

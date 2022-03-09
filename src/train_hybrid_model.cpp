@@ -11,7 +11,9 @@
 //#include <iosfwd>
 //#include <cppad/cg.hpp>
 
+#include "HybridDynamics.h"
 #include "VerifyModel.h"
+#include "AdjointMethod.h"
 
 #include <tf/tf.h>
 #include <ros/ros.h>
@@ -20,80 +22,35 @@ static HybridDynamics *g_hybrid_model;
 
 
 
-/*
-int main(int argc, char **argv){
-  //feenableexcept(FE_INVALID | FE_OVERFLOW);
-  ros::init(argc, argv, "train_hybrid_model");
-  ros::NodeHandle nh;
-  
-  g_hybrid_model = new HybridDynamics();
-
-  int num_weights = get_num_parameters();
-  //THese are the input and output vectors.
-  Eigen::Matrix<Scalar,Eigen::Dynamic,1> x_weights(num_weights);
-  Eigen::Matrix<Scalar,Eigen::Dynamic,1> y_x_pos(1);
-  
-  get_model_params(x_weights); //initializes the values.
-  CppAD::Independent(x_weights);
-  set_model_params(x_weights); //this creates the dependency needed to calculate the derivative wrt these params.
-  
-  Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
-  Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
-  
-  features[0] = 1;
-  features[1] = 1;
-  features[2] = 1;
-  features[3] = 1;
-  features[4] = 1;
-  TireNetwork::forward(features, forces);
-  
-  
-  y_x_pos[0] = forces[0];
-  
-  CppAD::ADFun<float> ode_f(x_weights, y_x_pos);
-  
-  ROS_INFO("%f %f %f", CppAD::Value(forces[0]), CppAD::Value(forces[1]), CppAD::Value(forces[2]));
-  
-  Eigen::Matrix<float,Eigen::Dynamic,1> gradient(num_weights);
-  Eigen::Matrix<float,Eigen::Dynamic,1> test_x_pos(1);
-  test_x_pos[0] = 1;
-  gradient = ode_f.Reverse(1, test_x_pos);
-  
-  ROS_INFO("Partial wrt sinkage:");
-  for(int i = 0; i < num_weights; i++){
-    ROS_INFO("gradient[%d]: %f", i, gradient[i]);
-  }
-  
-  return 0;
-}
-*/
-
-
-
 //Start by taking derivative wrt network weights
-/*
-int main(int argc, char **argv){
+
+int mainly_ignore_me(int argc, char **argv){
   //feenableexcept(FE_INVALID | FE_OVERFLOW);
   ros::init(argc, argv, "search_bekker_params");
   ros::NodeHandle nh;
   
   g_hybrid_model = new HybridDynamics();
 
-  int num_weights = get_num_parameters();
+  int num_weights = getNumWeights();
   //THese are the input and output vectors.
   Eigen::Matrix<Scalar,Eigen::Dynamic,1> x_weights(num_weights);
+  Eigen::Matrix<float,Eigen::Dynamic,1> x_weights_float(num_weights);
   Eigen::Matrix<Scalar,Eigen::Dynamic,1> y_x_pos(1);
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> start_state1(HybridDynamics::STATE_DIM); //dynamic parameter
   
-  get_model_params(x_weights); //initializes the values.
-  //x_weights[0] = TireNetwork::weight0(0,0);
-  CppAD::Independent(x_weights);
-  //TireNetwork::weight0(0,0) = x_weights[0];
-  set_model_params(x_weights); //this creates the dependency needed to calculate the derivative wrt these params.
+  start_state1 << 0,0,0,1, 0,0,.04, 0,0,0,0, 0,0,0, 0,0,0, 0,0,0,0;
+  
+  getModelParams(x_weights_float); //initializes the values.
+  for(int i = 0; i < num_weights; i++){
+    x_weights[i] = x_weights_float[i];
+  }
+  CppAD::Independent(x_weights, start_state1);
+  setModelParams(x_weights); //this creates the dependency needed to calculate the derivative wrt these params.
   
   Eigen::Matrix<Scalar,HybridDynamics::STATE_DIM,1> Xd;
   Eigen::Matrix<Scalar,HybridDynamics::CNTRL_DIM,1> u;
-  Scalar start_state[HybridDynamics::STATE_DIM] = {0,0,0,1, 0,0,.01, 0,0,0,0, 0,0,0, 0,0,0, 0,0,0,0};
-  g_hybrid_model->initState(start_state);
+  
+  g_hybrid_model->initStateCOM(start_state1);
   //g_hybrid_model->step(1,1); //(X, Xt1, u);
   u(0) = 1;
   u(1) = 1;
@@ -104,27 +61,69 @@ int main(int argc, char **argv){
   g_hybrid_model->ODE(g_hybrid_model->state_, Xd, u);
   
   //y_x_pos[0] = g_hybrid_model->state_[0];
-  y_x_pos[0] = Xd[16];
+  y_x_pos[0] = Xd[16]; //resulting forward velocity, vx
   
   CppAD::ADFun<float> ode_f(x_weights, y_x_pos);
 
-  for(int i = 0; i < HybridDynamics::STATE_DIM; i++){
-    ROS_INFO("%f", CppAD::Value(Xd[i]));
-  }
+  // for(int i = 0; i < HybridDynamics::STATE_DIM; i++){
+  //   ROS_INFO("%f", CppAD::Value(Xd[i]));
+  // }
   
-  Eigen::Matrix<float,Eigen::Dynamic,1> gradient(num_weights);
+  Eigen::Matrix<float,Eigen::Dynamic,1> gradient1(num_weights);
+  Eigen::Matrix<float,Eigen::Dynamic,1> gradient2(num_weights);
+  Eigen::Matrix<float,Eigen::Dynamic,1> start_state2(HybridDynamics::STATE_DIM);
   Eigen::Matrix<float,Eigen::Dynamic,1> test_x_pos(1);
+  
   test_x_pos[0] = 1;
-  gradient = ode_f.Reverse(1, test_x_pos);
+  gradient1 = ode_f.Reverse(1, test_x_pos);
+  
+  start_state2 << 0,0,0,1, 0,0,.03, 0,0,0,0, 0,0,0, 0,0,0, 0,0,0,0;
+  ode_f.new_dynamic(start_state2);
+  gradient2 = ode_f.Reverse(1, test_x_pos);
   
   ROS_INFO("Partial wrt sinkage:");
   for(int i = 0; i < num_weights; i++){
-    ROS_INFO("gradient[%d]: %f", i, gradient[i]);
+    ROS_INFO("gradient[%d]: IC#1: %f     IC#2: %f", i, gradient1[i], gradient2[i]);
   }
   
   return 0;
 }
-*/
+
+
+
+
+//need to understand this real quick.
+//It checks out.
+void test_dynamic_params(){
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> x(3); //independent vector
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> y(1); //dependent vector
+  Eigen::Matrix<Scalar,1,3> A;
+  A << 1,2,3;
+  
+  Eigen::Matrix<Scalar,Eigen::Dynamic,1> b(1); //dynamic params
+  b[0] = 5;
+  
+  CppAD::Independent(x, b);
+  y = A*x + b*x[0];
+  
+  CppAD::ADFun<float> fun(x, y);
+
+  Eigen::Matrix<float,Eigen::Dynamic,1> x1(3); //gradient
+  Eigen::Matrix<float,Eigen::Dynamic,1> y1(1); //partial wrt itself.
+  Eigen::Matrix<float,Eigen::Dynamic,1> b_new(1); //dynamic params
+  
+  y1[0] = 1;
+  x1 = fun.Reverse(1, y1);
+  ROS_INFO("%f %f %f", x1[0], x1[1], x1[2]);
+
+  b_new[0] = 7;
+  fun.new_dynamic(b_new);
+  x1 = fun.Reverse(1, y1);
+  ROS_INFO("%f %f %f", x1[0], x1[1], x1[2]);
+}
+
+
+
 
 //compare the input outputs to what happens in python
 Eigen::Matrix<Scalar,TireNetwork::num_out_features,1>  test_network(){
@@ -191,12 +190,57 @@ void test_network_save_load_get_set(){
 }
 
 
+void test_ode(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &X, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &Xd, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &theta){
+  Xd[0] = -theta[0]*X[0]; //simple.
+}
+
+
+void l2_loss(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &values, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &loss){
+  loss = values.transpose()*values;
+}
+
+
+void getGradient(AdjointMethod &am, Eigen::Matrix<float,Eigen::Dynamic,1> &theta){
+  am.theta_ = theta;
+  
+  Eigen::Matrix<float,Eigen::Dynamic,1> zt(am.dim_state_);
+  Eigen::Matrix<float,Eigen::Dynamic,1> W1(am.dim_state_); //a(t)
+  Eigen::Matrix<float,Eigen::Dynamic,1> W2(am.dim_params_);
+  Eigen::Matrix<float,Eigen::Dynamic,1> W1d(am.dim_state_);
+  Eigen::Matrix<float,Eigen::Dynamic,1> W2d(am.dim_params_);
+  Eigen::Matrix<float,Eigen::Dynamic,1> loss(1);
+  
+  zt[0] = 1;
+  
+  loss[0] = 1; //partial of loss wrt itself.
+  am.loss_fun_->Forward(0,zt);
+  W1 = am.loss_fun_->Reverse(1, loss); //initialize a(t1) = dL/dz(t1)
+  W2 = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(am.dim_params_,1);
+  
+  am.augmentedODE(zt, W1, W2, W1d, W2d);
+  
+  ROS_INFO("Check em: %f %f", W1d[0], W2d[0]);
+  //they check out.
+}
+
+
 
 int main(int argc, char **argv){
   //feenableexcept(FE_INVALID | FE_OVERFLOW);
   ros::init(argc, argv, "train_hybrid_model");
   ros::NodeHandle nh;
 
+  Eigen::Matrix<float,Eigen::Dynamic,1> theta(1);
+  theta[0] = 2;
+  
+  AdjointMethod am;
+  am.setODE(&test_ode, 1, 1);
+  am.setLossFunction(&l2_loss);
+  am.performAD();
+  //am.getGradient(theta);
+  getGradient(am, theta);
+  
+  
   //g_hybrid_model = new HybridDynamics();
   
   //g_hybrid_model->start_log();
@@ -206,12 +250,16 @@ int main(int argc, char **argv){
   // for(int i = 0; i < 20;i++){
   //   g_hybrid_model->step(1,1);
   // }
+
+  //test_dynamic_params();
   
   //g_hybrid_model->stop_log();
-  init_tests();
+  //init_tests();
   //test_network_save_load();
-  test_CV3_paths();
+  //test_CV3_paths();
   //train_model_on_dataset(.001f);
-  del_tests();
+  //del_tests();
 }
+
+
 

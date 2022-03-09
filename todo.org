@@ -1,4 +1,6 @@
 
+This is going to be an attempt to implement the adjoint sensitivity method.
+
 * Cool Compiler Flags
   -O3 obviously
   -DNDEBUG
@@ -92,7 +94,7 @@
   This is the big gun. Lets see if I can make it work
   for derivative wrt sinkage.
 
-* TODO Derivative wrt weights
+* DONE Derivative wrt weights
   Rewrite VerifyModel the functions getModelParams setModelParams.
   
 

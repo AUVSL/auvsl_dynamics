@@ -50,7 +50,7 @@ int readOdomFile(std::ifstream &odom_file, ODOM_LINE &odom_line){
   odom_file >> cmd_mode >> comma;
   odom_file >> odom_line.vl >> comma; //velocity left
   odom_file >> dist_left >> comma;
-v  odom_file >> odom_line.vr >> comma; //velocity right
+  odom_file >> odom_line.vr >> comma; //velocity right
   odom_file >> dist_right >> comma;
   odom_file >> odom_line.ts; //time (s)
   return odom_file.peek() != EOF;

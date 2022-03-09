@@ -129,6 +129,7 @@ set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -g
 
 add_executable(train_hybrid_model_node
   src/train_hybrid_model.cpp
+  src/AdjointMethod.cpp
   src/HybridDynamics.cpp
   src/utils.cpp
   src/TireNetwork.cpp

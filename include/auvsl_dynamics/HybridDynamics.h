@@ -37,6 +37,8 @@ public:
   void initState();
   void initState(Scalar *start_state);
   void initStateCOM(Scalar *start_state);
+  void initStateCOM(Eigen::Matrix<Scalar,HybridDynamics::STATE_DIM,1> start_state);
+    
   void step(Scalar vl, Scalar vr);
   void settle();
   
