@@ -66,25 +66,25 @@ void AdjointMethod::getGradient(const Eigen::Matrix<float,Eigen::Dynamic,1> &the
   for(int t = t1; t >= 1; t--){
     zt = z_history_->at(t);
     
-    augmentedODE(zt, W1, W2, W1d, W2d);
-    W1 += W1d*ts; //minus sign due to integrating backwards.
-    W2 += W2d*ts;
+    // augmentedODE(zt, W1, W2, W1d, W2d);
+    // W1 += W1d*ts; //minus sign due to integrating backwards.
+    // W2 += W2d*ts;
 
-    // augmentedODE(zt, W1, W2, k1_1, k1_2);
-    // temp_1 = W1 + .5*ts*k1_1;
-    // temp_2 = W2 + .5*ts*k1_2;
+    augmentedODE(zt, W1, W2, k1_1, k1_2);
+    temp_1 = W1 + .5*ts*k1_1;
+    temp_2 = W2 + .5*ts*k1_2;
     
-    // augmentedODE(zt, temp_1, temp_2, k2_1, k2_2);
-    // temp_1 = W1 + .5*ts*k2_1;
-    // temp_2 = W2 + .5*ts*k2_2;
+    augmentedODE(zt, temp_1, temp_2, k2_1, k2_2);
+    temp_1 = W1 + .5*ts*k2_1;
+    temp_2 = W2 + .5*ts*k2_2;
 
-    // augmentedODE(zt, temp_1, temp_2, k3_1, k3_2);
-    // temp_1 = W1 + ts*k3_1;
-    // temp_2 = W2 + ts*k3_2;
+    augmentedODE(zt, temp_1, temp_2, k3_1, k3_2);
+    temp_1 = W1 + ts*k3_1;
+    temp_2 = W2 + ts*k3_2;
     
-    // augmentedODE(zt, temp_1, temp_2, k4_1, k4_2);
-    // W1 += (ts/6.0)*(k1_1 + 2*k2_1 + 2*k3_1 + k4_1);
-    // W2 += (ts/6.0)*(k1_2 + 2*k2_2 + 2*k3_2 + k4_2);
+    augmentedODE(zt, temp_1, temp_2, k4_1, k4_2);
+    W1 += (ts/6.0)*(k1_1 + 2*k2_1 + 2*k3_1 + k4_1);
+    W2 += (ts/6.0)*(k1_2 + 2*k2_2 + 2*k3_2 + k4_2);
   }
   
   
@@ -104,7 +104,7 @@ void AdjointMethod::augmentedODE(Eigen::Matrix<float,Eigen::Dynamic,1> &zt,
   int cnt = 0;
   for(int i = 0; i < dim_state_; i++){
     for(int j = 0; j < dim_state_; j++){
-      df_dz_mat(j,i) = df_dz_vec[cnt];
+      df_dz_mat(i,j) = df_dz_vec[cnt];
       cnt++;
     }
   }  
@@ -117,7 +117,7 @@ void AdjointMethod::augmentedODE(Eigen::Matrix<float,Eigen::Dynamic,1> &zt,
   cnt = 0;
   for(int i = 0; i < dim_state_; i++){
     for(int j = 0; j < dim_params_; j++){
-      df_dtheta_mat(j,i) = df_dtheta_vec[cnt];
+      df_dtheta_mat(i,j) = df_dtheta_vec[cnt];
       cnt++;
     }
   }
