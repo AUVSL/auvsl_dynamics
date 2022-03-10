@@ -686,6 +686,7 @@ void init_tests(){
   g_hybrid_model->initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
   g_hybrid_model->settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
   z_stable = g_hybrid_model->state_[6];
+  ROS_INFO("Equillibrium vehicle height is %f", CppAD::Value(z_stable));
 }
 
 void del_tests(){

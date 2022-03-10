@@ -201,8 +201,7 @@ int main(int argc, char **argv){
   
   //g_hybrid_model->start_log();
   
-  //g_hybrid_model->initState();
-  //g_hybrid_model->settle();
+  
   // for(int i = 0; i < 20;i++){
   //   g_hybrid_model->step(1,1);
   // }
@@ -210,8 +209,8 @@ int main(int argc, char **argv){
   //g_hybrid_model->stop_log();
   init_tests();
   //test_network_save_load();
-  test_CV3_paths();
-  //train_model_on_dataset(.001f);
+  //test_CV3_paths();
+  train_model_on_dataset(.001f);
   del_tests();
 }
 
