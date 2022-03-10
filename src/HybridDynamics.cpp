@@ -137,13 +137,35 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     state_[17] = state_[19] = u[0];
     state_[18] = state_[20] = u[1];
     
-    //RK4(state_, Xt1, u);
-    Euler(state_, Xt1, u);
+    RK4(state_, Xt1, u);
+    //Euler(state_, Xt1, u);
     state_ = Xt1;
     //log_vehicle_state();
   }
 }
 
+void HybridDynamics::step(Scalar vl, Scalar vr, std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> *z_history){
+  Eigen::Matrix<float,Eigen::Dynamic,1> zt(STATE_DIM);
+  Eigen::Matrix<Scalar,STATE_DIM,1> Xt1;
+  Eigen::Matrix<Scalar,CNTRL_DIM,1> u;
+  
+  u(0) = vl;
+  u(1) = vr;
+  
+  const int num_steps = 50; //10*.005 = .05
+  for(int ii = 0; ii < num_steps; ii++){
+    state_[17] = state_[19] = u[0];
+    state_[18] = state_[20] = u[1];
+    
+    RK4(state_, Xt1, u);
+    state_ = Xt1;
+    for(int j = 0; j < STATE_DIM; j++){
+      zt[j] = CppAD::Value(state_[j]);
+    }
+    z_history->push_back(zt);
+  }
+  
+}
 
 //Going to assume tire contacts soil at  -tire_radius directly underneath the tire joint.
 void HybridDynamics::get_tire_cpts(const Eigen::Matrix<Scalar,STATE_DIM,1> &X,

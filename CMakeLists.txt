@@ -146,3 +146,27 @@ add_executable(train_hybrid_model_node
 target_link_libraries(train_hybrid_model_node ${catkin_LIBRARIES})
 #set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
 set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-g -Wall -Wno-undef")
+
+
+
+add_executable(test_gradient_node
+  src/test_gradient_methods.cpp
+  src/AdjointMethod.cpp
+  src/HybridDynamics.cpp
+  src/utils.cpp
+  src/TireNetwork.cpp
+  src/generated/forward_dynamics.cpp
+  src/generated/inertia_properties.cpp
+  src/generated/inverse_dynamics.cpp
+  src/generated/jacobians.cpp
+  src/generated/jsim.cpp
+  src/generated/miscellaneous.cpp
+  src/generated/transforms.cpp
+)
+
+target_link_libraries(test_gradient_node ${catkin_LIBRARIES})
+set_target_properties(test_gradient_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
+#set_target_properties(test_gradient_node PROPERTIES COMPILE_FLAGS "-g -Wall -Wno-undef")
+
+
+

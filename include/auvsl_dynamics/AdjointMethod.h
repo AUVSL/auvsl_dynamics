@@ -11,11 +11,12 @@ class AdjointMethod {
 public:
   AdjointMethod();
   ~AdjointMethod();
-  
-  void getGradient(const Eigen::Matrix<float,Eigen::Dynamic,1>& values, Eigen::Matrix<float,Eigen::Dynamic,1>& gradient);
+
+  void setTimestep(float timestep);
+  void getGradient(const Eigen::Matrix<float,Eigen::Dynamic,1>& thetas, const Eigen::Matrix<float,Eigen::Dynamic,1>& true_values, Eigen::Matrix<float,Eigen::Dynamic,1>& gradient);
   void performAD();
   void setODE(void (*function)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&), int dim_state, int dim_params);
-  void setLossFunction(void (*function)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&));
+  void setLossFunction(void (*function)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&));
   void setStateHistory(std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> *z_history_);
   
   void augmentedODE(Eigen::Matrix<float,Eigen::Dynamic,1> &zt, //this is going to have to be recorded from the forward pass
@@ -26,7 +27,7 @@ public:
                                    );
   //private:
   void (*ode_f_)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&);
-  void (*loss_f_)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&);
+  void (*loss_f_)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&);
   
   CppAD::ADFun<float> *df_dz_fun_;
   CppAD::ADFun<float> *df_dtheta_fun_;
@@ -34,6 +35,8 @@ public:
   
   int dim_state_;
   int dim_params_;
+  
+  float ts_;
   
   std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> *z_history_;
   Eigen::Matrix<float,Eigen::Dynamic,1> theta_;

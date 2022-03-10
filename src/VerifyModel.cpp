@@ -1,5 +1,6 @@
 #include "VerifyModel.h"
 #include "TireNetwork.h"
+#include "AdjointMethod.h"
 
 //Good old fashioned spaghetti code. Enjoy.
 
@@ -7,6 +8,7 @@
 
 HybridDynamics *g_hybrid_model;
 Scalar z_stable;
+AdjointMethod adjoint_method;
 
 float lr_;
 
@@ -158,7 +160,11 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
 
 
 
-
+template <typename MatrixType1, typename MatrixType2>
+void l2_loss(MatrixType1 &values, MatrixType1 &true_values, MatrixType2 &loss){
+  MatrixType1 errors = values - true_values;
+  loss = errors.transpose()*errors;
+}
 
 
 void forwardPropagateHorizon(double start_time, Scalar *X_start,
@@ -180,47 +186,37 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
   //find gt end point in advance.
   unsigned j;
   for(j = 0; (gt_vec[j].ts - start_time) < TIME_HORIZON && j < gt_vec.size(); j++){}
-  
-  
-  g_hybrid_model->initStateCOM(X_start);  
 
-  Eigen::Matrix<Scalar,Eigen::Dynamic,1> model_params(float_model_params.size());
-  for(int ii = 0; ii < float_model_params.size(); ii++){
-    model_params[ii] = float_model_params[ii];
-  }
-
-  CppAD::Independent(model_params);
-  setModelParams(model_params); //assign parameters to network weights.
+  std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> z_history;
+  Eigen::Matrix<float,Eigen::Dynamic,1> zt;
+  
+  g_hybrid_model->initStateCOM(X_start);
+  zt = g_hybrid_model->state_;
+  z_history->push_back(zt);
   
   Scalar vl, vr;
   for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < TIME_HORIZON; idx++){
     vl = odom_vec[idx].vl;
     vr = odom_vec[idx].vr;
-    g_hybrid_model->step(vl, vr);
+    g_hybrid_model->step(vl, vr, &z_history);
   }
-  
+
+  Eigen::Matrix<float,Eigen::Dynamic,1> error(2);
   Scalar x_err = g_hybrid_model->state_[4] - gt_vec[j].x;
   Scalar y_err = g_hybrid_model->state_[5] - gt_vec[j].y;
-  Scalar lin_err = CppAD::sqrt(x_err*x_err + y_err*y_err);
   
   Eigen::Matrix<Scalar,Eigen::Dynamic,1> loss(1);
-  loss[0] = lin_err;
+
+
   
-  CppAD::ADFun<float> auto_diff(model_params, loss);
   
-  ROS_INFO("Loss %f", CppAD::Value(lin_err));
+  
   
   if(fabs(CppAD::Value(lin_err)) > 1000 || CppAD::isnan(lin_err)){
     ROS_INFO("Loss Exploded");
     dmodel_params = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(dmodel_params.size(),1);
     return; //hack. If this conditions triggers, something bad happened during the forward pass. So ignore.
   }
-  
-  Eigen::Matrix<float,Eigen::Dynamic,1> y1(1);
-  y1[0] = 1;
-  dmodel_params = auto_diff.Reverse(1, y1);
-
-  //ROS_INFO("dmodel_params %f %f %f %f %f", dmodel_params[0], dmodel_params[1], dmodel_params[2], dmodel_params[3], dmodel_params[4]);
   
   for(int ii = 0; ii < dmodel_params.size(); ii++){
     if(fabs(dmodel_params[ii]) > 1000 || CppAD::isnan(dmodel_params[ii])){
@@ -229,6 +225,7 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
       return;
     }
   }
+
   
 }
 
@@ -638,11 +635,21 @@ void test_LD3_path(){
   ROS_INFO("LD3 Total Runtime %d", total_run_time.sec);
 }
 
+
+void wrapper_ode(Eigen::Matrix<float,Eigen::Dynamic,1> &X, Eigen::Matrix<float,Eigen::Dynamic,1> &Xd, Eigen::Matrix<float,Eigen::Dynamic,1> &theta){
+  g_hybrid_model->
+}
+
+
 //Holy shit, we can compute the gradient wrt any model parameters.
 //This function just does the gradient descent.
 //Doesnt derive the gradient.
 void train_model_on_dataset(float lr){
   //Need to derive expression for gradient wrt loss function.
+  
+  adjoint_method.setTimestep(g_hybrid_model->timestep);
+  adjoint_method.setODE();
+  
   lr_ = lr;
   
   char odom_fn[100];
