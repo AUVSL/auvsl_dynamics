@@ -144,5 +144,5 @@ add_executable(train_hybrid_model_node
 )
 
 target_link_libraries(train_hybrid_model_node ${catkin_LIBRARIES})
-set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
-#set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-g -Wall -Wno-undef")
+#set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
+set_target_properties(train_hybrid_model_node PROPERTIES COMPILE_FLAGS "-g -Wall -Wno-undef")

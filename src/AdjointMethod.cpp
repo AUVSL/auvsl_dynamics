@@ -23,7 +23,7 @@ AdjointMethod::~AdjointMethod(){
 }
 
 //This is the final function.
-void AdjointMethod::getGradient(Eigen::Matrix<float,Eigen::Dynamic,1> &theta){
+void AdjointMethod::getGradient(const Eigen::Matrix<float,Eigen::Dynamic,1> &theta, Eigen::Matrix<float,Eigen::Dynamic,1>& gradient){
   theta_ = theta;
   
   Eigen::Matrix<float,Eigen::Dynamic,1> zt(dim_state_);
@@ -33,17 +33,27 @@ void AdjointMethod::getGradient(Eigen::Matrix<float,Eigen::Dynamic,1> &theta){
   Eigen::Matrix<float,Eigen::Dynamic,1> W2d(dim_params_);
   Eigen::Matrix<float,Eigen::Dynamic,1> loss(1);
   
-  zt[0] = 1;
+  //Set initial conditions
+  unsigned t1 = z_history_->size()-1;
+  zt = z_history_->at(t1); //z(t1)
   
   loss[0] = 1; //partial of loss wrt itself.
   loss_fun_->Forward(0,zt);
   W1 = loss_fun_->Reverse(1, loss); //initialize a(t1) = dL/dz(t1)
   W2 = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(dim_params_,1);
   
-  augmentedODE(zt, W1, W2, W1d, W2d);
+  //integrate backwards from t1 to t0.
+  for(int t = t1; t >= 0; t--){
+    zt = z_history_->at(t);
+    augmentedODE(zt, W1, W2, W1d, W2d);
+    
+    //euler method.
+    W1 -= W1d*.001; //minus sign due to integrating backwards.
+    W2 -= W2d*.001;
+  }
   
-  //
   
+  gradient = W2;
   
 }
 
@@ -60,6 +70,11 @@ void AdjointMethod::augmentedODE(Eigen::Matrix<float,Eigen::Dynamic,1> &zt,
   df_dtheta_fun_->new_dynamic(zt);
   W2d = -W1.transpose()*df_dtheta_fun_->Jacobian(theta_);
   
+}
+
+
+void AdjointMethod::setStateHistory(std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> *z_history){
+  z_history_ = z_history;
 }
 
 //obtain the f(z,theta) ode.

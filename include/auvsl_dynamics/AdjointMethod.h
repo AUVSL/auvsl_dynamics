@@ -12,10 +12,11 @@ public:
   AdjointMethod();
   ~AdjointMethod();
   
-  void getGradient(Eigen::Matrix<float,Eigen::Dynamic,1>& values);
+  void getGradient(const Eigen::Matrix<float,Eigen::Dynamic,1>& values, Eigen::Matrix<float,Eigen::Dynamic,1>& gradient);
   void performAD();
   void setODE(void (*function)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&), int dim_state, int dim_params);
   void setLossFunction(void (*function)(Eigen::Matrix<Scalar,Eigen::Dynamic,1>&, Eigen::Matrix<Scalar,Eigen::Dynamic,1>&));
+  void setStateHistory(std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> *z_history_);
   
   void augmentedODE(Eigen::Matrix<float,Eigen::Dynamic,1> &zt, //this is going to have to be recorded from the forward pass
                                    Eigen::Matrix<float,Eigen::Dynamic,1> &W1, //a(t)
@@ -34,6 +35,6 @@ public:
   int dim_state_;
   int dim_params_;
   
-  std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> z_history_;
+  std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> *z_history_;
   Eigen::Matrix<float,Eigen::Dynamic,1> theta_;
 };

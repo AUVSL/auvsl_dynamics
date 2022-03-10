@@ -23,7 +23,7 @@ static HybridDynamics *g_hybrid_model;
 
 
 //Start by taking derivative wrt network weights
-
+/*
 int mainly_ignore_me(int argc, char **argv){
   //feenableexcept(FE_INVALID | FE_OVERFLOW);
   ros::init(argc, argv, "search_bekker_params");
@@ -88,7 +88,7 @@ int mainly_ignore_me(int argc, char **argv){
   
   return 0;
 }
-
+*/
 
 
 
@@ -190,17 +190,27 @@ void test_network_save_load_get_set(){
 }
 
 
-void test_ode(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &X, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &Xd, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &theta){
+//void test_ode(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &X, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &Xd, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &theta){
+template <typename MatrixType>
+void test_ode(MatrixType &X, MatrixType &Xd, MatrixType &theta){
   Xd[0] = -theta[0]*X[0]; //simple.
 }
 
-
-void l2_loss(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &values, Eigen::Matrix<Scalar,Eigen::Dynamic,1> &loss){
+template <typename MatrixType>
+void l2_loss(MatrixType &values, MatrixType &loss){
   loss = values.transpose()*values;
 }
 
 
-void getGradient(AdjointMethod &am, Eigen::Matrix<float,Eigen::Dynamic,1> &theta){
+void getGradient(){
+  Eigen::Matrix<float,Eigen::Dynamic,1> theta(1);
+  theta[0] = 2;
+  
+  AdjointMethod am;
+  am.setODE(&test_ode, 1, 1);
+  am.setLossFunction(&l2_loss);
+  am.performAD();
+
   am.theta_ = theta;
   
   Eigen::Matrix<float,Eigen::Dynamic,1> zt(am.dim_state_);
@@ -224,21 +234,104 @@ void getGradient(AdjointMethod &am, Eigen::Matrix<float,Eigen::Dynamic,1> &theta
 }
 
 
+void fd_reference_gradient(){
+  Eigen::Matrix<double,Eigen::Dynamic,1> X(1);
+  Eigen::Matrix<double,Eigen::Dynamic,1> Xd(1);
+  Eigen::Matrix<double,Eigen::Dynamic,1> loss_value1(1);
+  Eigen::Matrix<double,Eigen::Dynamic,1> loss_value2(1);
+  Eigen::Matrix<double,Eigen::Dynamic,1> theta(1);
 
-int main(int argc, char **argv){
-  //feenableexcept(FE_INVALID | FE_OVERFLOW);
-  ros::init(argc, argv, "train_hybrid_model");
-  ros::NodeHandle nh;
+  double theta_value = .1;
+  theta[0] = theta_value;
+  
+  double ts = .001;
+  double ic = 10;
+  X[0] = ic;
+  
+  //euler integrate it.
+  for(int i = 0; i < 999; i++){
+    test_ode(X,Xd,theta);
+    X[0] += ts*Xd[0];
+  }
 
+  l2_loss(X, loss_value1);
+  
+  
+  ROS_INFO("Finite Difference as h -> 0");
+  
+  
+  double h;
+  for(int j = 1; j < 10; j++){
+    h = exp10(-j);
+    
+    theta[0] = theta_value + h;
+    X[0] = ic;
+    
+    for(int i = 0; i < 999; i++){
+      test_ode(X,Xd,theta);
+      X[0] += ts*Xd[0];
+    }
+    
+    l2_loss(X, loss_value2);
+    double fd_grad = (loss_value2[0] - loss_value1[0]) / h;
+    
+    ROS_INFO("FD Gradient %f\th=%f", fd_grad, h);
+  }
+}
+
+
+
+//test.
+void test_asm_ode(){
   Eigen::Matrix<float,Eigen::Dynamic,1> theta(1);
-  theta[0] = 2;
+  theta[0] = .1;
   
   AdjointMethod am;
   am.setODE(&test_ode, 1, 1);
   am.setLossFunction(&l2_loss);
   am.performAD();
+  
+  //need to generate state history.
+  
+  std::vector<Eigen::Matrix<float,Eigen::Dynamic,1>> z_history;
+  Eigen::Matrix<float,Eigen::Dynamic,1> X(1);
+  Eigen::Matrix<float,Eigen::Dynamic,1> Xd(1);
+  Eigen::Matrix<float,Eigen::Dynamic,1> loss_value1(1);
+  Eigen::Matrix<float,Eigen::Dynamic,1> loss_value2(1);
+
+  
+  X[0] = 10; //initial condition
+  
+  float ts = .001;
+  
+  //euler integrate it.
+  z_history.push_back(X);
+  for(int i = 0; i < 999; i++){
+    test_ode(X,Xd,theta);
+    X[0] += ts*Xd[0];
+    z_history.push_back(X);
+  }
+
+  l2_loss(X, loss_value1);
+  am.setStateHistory(&z_history);
+  
+  Eigen::Matrix<float,Eigen::Dynamic,1> gradient(1);
+  am.getGradient(theta, gradient);
+  
+  ROS_INFO("Adjoint Method gradient %f", gradient[0]);
+  fd_reference_gradient();
+}
+
+
+
+int main(int argc, char **argv){
+  //feenableexcept(FE_INVALID | FE_OVERFLOW);
+  ros::init(argc, argv, "train_hybrid_model");
+  ros::NodeHandle nh;
+  
+  test_asm_ode();
+  
   //am.getGradient(theta);
-  getGradient(am, theta);
   
   
   //g_hybrid_model = new HybridDynamics();
