@@ -42,20 +42,28 @@ HybridDynamics::HybridDynamics(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
   
   //For more information on these, see TerrainMap.cpp and TerrainMap.h
-  
+  /*
   bekker_params[0] = 29.76;           //kc
   bekker_params[1] = 2083;            //kphi
   bekker_params[2] = .8;              //n0
   bekker_params[3] = 0;               //n1
   bekker_params[4] = 22.5*M_PI/180.0; //phi
-  
-  /*
-  bekker_params[0] = 29.760115;
-  bekker_params[1] = 2083;
-  bekker_params[2] = .806650;
-  bekker_params[3] = .134681;
-  bekker_params[4] = .462878;
   */
+  /*
+  bekker_params[0] = 29.760157;
+  bekker_params[1] = 2083;
+  bekker_params[2] = .875123;
+  bekker_params[3] = .113009;
+  bekker_params[4] = .404438;
+  */  
+
+  bekker_params[0] = 32.666603;
+  bekker_params[1] = 2091.618652;
+  bekker_params[2] = .891160;
+  bekker_params[3] = .145637;
+  bekker_params[4] = .415378;
+
+  
   
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);

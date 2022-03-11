@@ -145,7 +145,8 @@ int main(int argc, char **argv){
   
   
   init_tests();
-  //test_CV3_paths();
-  train_model_on_dataset(.01f);
+  //test_LD3_path();
+  test_CV3_paths();
+  //train_model_on_dataset(1e-4f);
   del_tests();
 }

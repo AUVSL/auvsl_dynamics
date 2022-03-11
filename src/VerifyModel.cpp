@@ -195,7 +195,6 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
   
   Scalar vl, vr;
   for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < TIME_HORIZON; idx++){
-  //for(unsigned idx = start_idx; idx < (start_idx+10); idx++){
     vl = odom_vec[idx].vl;
     vr = odom_vec[idx].vr;
     g_hybrid_model->step(vl, vr);
@@ -525,7 +524,11 @@ void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params){
   }
 
   batch_dmodel_params = batch_dmodel_params / (float)count;
-  float_model_params = float_model_params - (lr_*batch_dmodel_params);
+  float_model_params[0] = float_model_params[0] - (10000*lr_*batch_dmodel_params[0]);
+  float_model_params[1] = float_model_params[1] - (1000000*lr_*batch_dmodel_params[1]);
+  float_model_params[2] = float_model_params[2] - (lr_*batch_dmodel_params[2]);
+  float_model_params[3] = float_model_params[3] - (lr_*batch_dmodel_params[3]);
+  float_model_params[4] = float_model_params[4] - (lr_*batch_dmodel_params[4]);
 
   ROS_INFO("\n\n");
   ROS_INFO("======================================================================================");
@@ -646,12 +649,12 @@ void train_model_on_dataset(float lr){
   char gt_fn[100];
   
   Eigen::Matrix<float,Eigen::Dynamic,1> float_model_params(5);
-  float_model_params[0] = 29.76f;
-  float_model_params[1] = 2083.0f;
-  float_model_params[2] = .8f;
-  float_model_params[3] = 0;
-  float_model_params[4] = .39f;
-
+  float_model_params[0] = CppAD::Value(g_hybrid_model->bekker_params[0]);
+  float_model_params[1] = CppAD::Value(g_hybrid_model->bekker_params[1]);
+  float_model_params[2] = CppAD::Value(g_hybrid_model->bekker_params[2]);
+  float_model_params[3] = CppAD::Value(g_hybrid_model->bekker_params[3]);
+  float_model_params[4] = CppAD::Value(g_hybrid_model->bekker_params[4]);
+  
   for(int ii = 0; ii < 10; ii++){
     for(int jj = 1; jj <= 17; jj++){
       memset(odom_fn, 0, 100);
