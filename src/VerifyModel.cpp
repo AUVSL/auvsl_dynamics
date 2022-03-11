@@ -527,7 +527,9 @@ void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params){
     
     count++;
   }
-
+  
+  saveHybridNetwork();
+  
   //batch training mode
   //batch_dmodel_params = batch_dmodel_params / (float)count;
   //float_model_params = float_model_params - (lr_*batch_dmodel_params);
@@ -673,8 +675,6 @@ void train_model_on_dataset(float lr){
       fileTrain(float_model_params);
     }
   }
-  
-  saveHybridNetwork();
 }
 
 

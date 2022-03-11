@@ -186,8 +186,6 @@ void test_network_save_load_get_set(){
       return;
     }
   }
-
-  
 }
 
 
@@ -197,20 +195,11 @@ int main(int argc, char **argv){
   ros::init(argc, argv, "train_hybrid_model");
   ros::NodeHandle nh;
 
-  //g_hybrid_model = new HybridDynamics();
-  
-  //g_hybrid_model->start_log();
-  
-  
-  // for(int i = 0; i < 20;i++){
-  //   g_hybrid_model->step(1,1);
-  // }
-  
-  //g_hybrid_model->stop_log();
   init_tests();
   //test_network_save_load();
-  //test_CV3_paths();
-  train_model_on_dataset(.001f);
+  test_CV3_paths();
+  //loadHybridNetwork();
+  //train_model_on_dataset(.001f);
   del_tests();
 }
 

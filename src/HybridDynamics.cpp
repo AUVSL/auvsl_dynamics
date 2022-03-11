@@ -126,8 +126,8 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     state_[17] = state_[19] = u[0];
     state_[18] = state_[20] = u[1];
     
-    //RK4(state_, Xt1, u);
-    Euler(state_, Xt1, u);
+    RK4(state_, Xt1, u);
+    //Euler(state_, Xt1, u);
     state_ = Xt1;
     log_vehicle_state();
   }
@@ -380,8 +380,8 @@ void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   qd[2] = u[0]; //q3
   qd[3] = u[1]; //q4
   
-  base_vel[0] = X[11];
-  base_vel[1] = X[12];
+  base_vel[0] = 0; //X[11];
+  base_vel[1] = 0; //X[12];
   base_vel[2] = X[13];
   base_vel[3] = X[14];
   base_vel[4] = X[15];
@@ -418,8 +418,8 @@ void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   //ROS_INFO("Acc %f %f %f %f %f %f", base_acc[0], base_acc[1], base_acc[2], base_acc[3], base_acc[4], base_acc[5]);
   //ROS_INFO("Vel %f %f %f %f %f %f", com_vel[0], com_vel[1], com_vel[2], com_vel[3], com_vel[4], com_vel[5]);
   
-  Eigen::Matrix<Scalar,3,1> ang_vel(base_vel[0], base_vel[1], base_vel[2]);
-  //Eigen::Matrix<Scalar,3,1> ang_vel(0,0, base_vel[2]); //2D Approximation. No roll pitch
+  //Eigen::Matrix<Scalar,3,1> ang_vel(base_vel[0], base_vel[1], base_vel[2]);
+  Eigen::Matrix<Scalar,3,1> ang_vel(0,0, base_vel[2]); //2D Approximation. No roll pitch
   Eigen::Matrix<Scalar,3,1> lin_vel(base_vel[3], base_vel[4], base_vel[5]);
   Eigen::Matrix<Scalar,4,1> quat_dot = calcQuatDot(quat, ang_vel);
   
@@ -439,8 +439,8 @@ void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   Xd[9] = u[0]; //X[19];
   Xd[10] = u[1]; //X[20];
   
-  Xd[11] = base_acc[0];
-  Xd[12] = base_acc[1];
+  Xd[11] = 0;// base_acc[0];
+  Xd[12] = 0;//base_acc[1];
   Xd[13] = base_acc[2];
   Xd[14] = base_acc[3];
   Xd[15] = base_acc[4];
