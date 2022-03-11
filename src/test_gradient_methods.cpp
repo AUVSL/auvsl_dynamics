@@ -192,7 +192,7 @@ void test_network_save_load_get_set(){
 //essentially this is xd = Ax + theta*x
 template <typename MatrixType>
 void test_ode2(MatrixType &X, MatrixType &Xd, MatrixType &theta){
-  Xd[0] = 1*X[0] + 2*X[1] + theta[0];
+  Xd[0] = -.1*X[0]*X[1] + -2*X[1] + theta[0];
   Xd[1] = 3*X[0] + 4*X[1] + theta[1];
 }
 

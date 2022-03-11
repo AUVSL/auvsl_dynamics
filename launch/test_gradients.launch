@@ -1,0 +1,4 @@
+<launch>
+  <rosparam file="$(find auvsl_dynamics)/config/params.yaml"/>
+  <node name="test_gradient_node" pkg="auvsl_dynamics" type="test_gradient_node" output="screen" launch-prefix="gdb -ex run"/>
+</launch>

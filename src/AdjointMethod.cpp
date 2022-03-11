@@ -69,7 +69,7 @@ void AdjointMethod::getGradient(const Eigen::Matrix<float,Eigen::Dynamic,1> &the
     // augmentedODE(zt, W1, W2, W1d, W2d);
     // W1 += W1d*ts; //minus sign due to integrating backwards.
     // W2 += W2d*ts;
-
+    
     augmentedODE(zt, W1, W2, k1_1, k1_2);
     temp_1 = W1 + .5*ts*k1_1;
     temp_2 = W2 + .5*ts*k1_2;
@@ -122,6 +122,7 @@ void AdjointMethod::augmentedODE(Eigen::Matrix<float,Eigen::Dynamic,1> &zt,
     }
   }
   W2d = -W1.transpose()*df_dtheta_mat;
+  
 }
 
 
@@ -153,12 +154,15 @@ void AdjointMethod::performAD(){
   CppAD::Independent(Z, theta);
   ode_f_(Z,Zd,theta);
   df_dz_fun_ = new CppAD::ADFun<float>(Z,Zd);
-
+  //df_dz_fun_->optimize();
+  
   CppAD::Independent(theta, Z);
   ode_f_(Z,Zd,theta);
   df_dtheta_fun_ = new CppAD::ADFun<float>(theta,Zd);
-
+  //df_dtheta_fun_->optimize();
+  
   CppAD::Independent(Z, true_zt1);
   loss_f_(Z, true_zt1, loss);
   loss_fun_ = new CppAD::ADFun<float>(Z, loss);
+  //loss_fun_->optimize();
 }

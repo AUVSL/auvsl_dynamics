@@ -69,7 +69,8 @@ HybridDynamics::~HybridDynamics(){
 }
 
 void HybridDynamics::initState(){
-  Scalar start_state[STATE_DIM] = {0,0,0,1, 0,0,.16, 0,0,0,0, 0,0,0, 0,0,0, 0,0,0,0};
+  Scalar start_state[STATE_DIM] = {0,0,0,1, 0,0,.1, 0,0,0,0, 0,0,0, 0,0,0, 0,0,0,0};
+  //Scalar start_state[STATE_DIM] = {0,0,0,1, 0,0,.06, 0,0,0,0, 0,0,0, 0,0,0, 0,0,0,0}; //2D
   initState(start_state);
 }
 
@@ -140,7 +141,7 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     RK4(state_, Xt1, u);
     //Euler(state_, Xt1, u);
     state_ = Xt1;
-    //log_vehicle_state();
+    log_vehicle_state();
   }
 }
 
@@ -156,13 +157,15 @@ void HybridDynamics::step(Scalar vl, Scalar vr, std::vector<Eigen::Matrix<float,
   for(int ii = 0; ii < num_steps; ii++){
     state_[17] = state_[19] = u[0];
     state_[18] = state_[20] = u[1];
-    
+
+    //Euler(state_, Xt1, u);
     RK4(state_, Xt1, u);
     state_ = Xt1;
     for(int j = 0; j < STATE_DIM; j++){
       zt[j] = CppAD::Value(state_[j]);
     }
     z_history->push_back(zt);
+    log_vehicle_state();
   }
   
 }
@@ -242,6 +245,7 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   
   Scalar sinkages[4];
   get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
+  //ROS_INFO("sinkage %f %f %f %f", CppAD::Value(sinkages[0]), CppAD::Value(sinkages[1]), CppAD::Value(sinkages[2]), CppAD::Value(sinkages[3]));
   
   //get the velocity of each tire contact point expressed in the contact point frame
   Eigen::Matrix<Scalar,3,1> cpt_vels[4];
@@ -407,12 +411,13 @@ void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   // q[2] = q3
   // q[3] = q4
     
-  qd[0] = u[0]; //q1 //tire velocities. These actually matter.
-  qd[1] = u[1]; //q2
-  qd[2] = u[0]; //q3
-  qd[3] = u[1]; //q4
+  qd[0] = X[17]; //q1 //tire velocities. These actually matter.
+  qd[1] = X[18];
+  qd[2] = X[19];
+  qd[3] = X[20];
+
   
-  base_vel[0] = X[11];
+  base_vel[0] = X[11]; //2D
   base_vel[1] = X[12];
   base_vel[2] = X[13];
   base_vel[3] = X[14];
@@ -451,6 +456,7 @@ void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   //ROS_INFO("Vel %f %f %f %f %f %f", com_vel[0], com_vel[1], com_vel[2], com_vel[3], com_vel[4], com_vel[5]);
   
   Eigen::Matrix<Scalar,3,1> ang_vel(base_vel[0], base_vel[1], base_vel[2]);
+  //Eigen::Matrix<Scalar,3,1> ang_vel(0,0, base_vel[2]); //2D
   Eigen::Matrix<Scalar,3,1> lin_vel(base_vel[3], base_vel[4], base_vel[5]);
   Eigen::Matrix<Scalar,4,1> quat_dot = calcQuatDot(quat, ang_vel);
   
@@ -463,19 +469,19 @@ void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   
   Xd[4] = lin_vel[0];
   Xd[5] = lin_vel[1];
-  Xd[6] = lin_vel[2];
+  Xd[6] = lin_vel[2]; //2D
   
-  Xd[7] = u[0]; //X[17];
-  Xd[8] = u[1]; //X[18];
-  Xd[9] = u[0]; //X[19];
-  Xd[10] = u[1]; //X[20];
+  Xd[7] = X[17];
+  Xd[8] = X[18];
+  Xd[9] = X[19];
+  Xd[10] = X[20];
   
-  Xd[11] = base_acc[0];
+  Xd[11] = base_acc[0]; //2D
   Xd[12] = base_acc[1];
   Xd[13] = base_acc[2];
   Xd[14] = base_acc[3];
   Xd[15] = base_acc[4];
-  Xd[16] = base_acc[5];
+  Xd[16] = base_acc[5]; //2D
   
   Xd[17] = 0; //qdd[0];
   Xd[18] = 0; //qdd[1];

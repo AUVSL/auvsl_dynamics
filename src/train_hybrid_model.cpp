@@ -1,4 +1,4 @@
-x#include <iostream>
+#include <iostream>
 #include <thread>
 #include <vector>
 #include <math.h>
@@ -25,8 +25,10 @@ int main(int argc, char **argv){
   ros::NodeHandle nh;
   
   init_tests();
+  
+  //loadHybridNetwork();  
   //test_CV3_paths();
-  train_model_on_dataset(.001f);
+  train_model_on_dataset(1e-3f);
   del_tests();
 }
 

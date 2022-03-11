@@ -6,9 +6,11 @@ import numpy as np
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 
 df = pd.read_csv("/home/justin/xout.csv")
-#df = df.loc[:400]
-
 plt.plot(df['x'], df['y'], color='b')
+
+df = pd.read_csv("/home/justin/Downloads/Train3/localization_ground_truth/0001_Tr_grass_GT.txt", header=None)
+plt.plot(df[1][0:800], df[2][0:800], color='r')
+
 plt.show()
 
 #plt.plot(df['z'], color='r')
