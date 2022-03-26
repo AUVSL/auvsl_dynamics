@@ -124,7 +124,7 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     RK4(state_, Xt1, u);
     //Euler(state_, Xt1, u);
     state_ = Xt1;
-    //log_vehicle_state();
+    log_vehicle_state();
   }
 }
 
