@@ -1,5 +1,20 @@
 #include "utils.h"
+#include <math.h>
 
+
+void roty(Eigen::Matrix<Scalar,3,3>& rot, Scalar angle){
+  rot(0,0) = cosf(angle);
+  rot(0,1) = 0;
+  rot(0,2) = sinf(angle);
+
+  rot(1,0) = 0;
+  rot(1,1) = 1;
+  rot(1,2) = 0;
+
+  rot(2,0) = -sinf(angle);
+  rot(2,1) = 0;
+  rot(2,2) = cosf(angle);
+}
 
 
 Eigen::Matrix<Scalar,4,1> calcQuatDot(Eigen::Matrix<Scalar,4,1> orientation, Eigen::Matrix<Scalar,3,1> ang_vel_body){
@@ -15,7 +30,7 @@ Eigen::Matrix<Scalar,4,1> calcQuatDot(Eigen::Matrix<Scalar,4,1> orientation, Eig
 
 
 //https://github.com/rbdl/rbdl/blob/master/include/rbdl/Quaternion.h
-//Say quaternion represents the orientation of Frame B wtr to Frame A
+//Say quaternion represents the orientation of Frame B wrt Frame A
 //Then this returns a matrix representation of the rotational
 //displacement from A to B.
 //The rotation that converts a frame coincident with A to frame B

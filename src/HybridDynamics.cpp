@@ -35,6 +35,14 @@ std::ofstream HybridDynamics::log_file;
 std::ofstream HybridDynamics::debug_file;
 Scalar HybridDynamics::timestep = .001;
 
+
+Scalar get_altitude(Scalar x, Scalar y){
+  return x*.1;
+}
+
+
+
+
 HybridDynamics::HybridDynamics(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
   
@@ -124,73 +132,114 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     RK4(state_, Xt1, u);
     //Euler(state_, Xt1, u);
     state_ = Xt1;
-    //log_vehicle_state();
+    log_vehicle_state();
   }
 }
 
 
-//Going to assume tire contacts soil at  -tire_radius directly underneath the tire joint.
-void HybridDynamics::get_tire_cpts(const Eigen::Matrix<Scalar,STATE_DIM,1> &X,
-                                   Eigen::Matrix<Scalar,3,1> *cpt_pts,
-                                   Eigen::Matrix<Scalar,3,3> *cpt_rots){
+//cpt rots express a vector in the tire cpt frame into the world frame
+//cpt_pts is the displacement from the origin of the world frame to the center of the tire joints
+//sinkages is the depth the tire cpt is below the soil
+void HybridDynamics::get_tire_cpts_sinkages(const Eigen::Matrix<Scalar,STATE_DIM,1> &X,
+                                            Eigen::Matrix<Scalar,3,1> *cpt_pts,
+                                            Eigen::Matrix<Scalar,3,3> *cpt_rots,
+                                            Scalar *sinkages){
+  
   const Eigen::Matrix<Scalar,3,4> tire_translations = (Eigen::Matrix<Scalar,3,4>() <<
                                                        tx_front_left_wheel,tx_front_right_wheel,tx_rear_left_wheel,tx_rear_right_wheel,
                                                        ty_front_left_wheel,ty_front_right_wheel,ty_rear_left_wheel,ty_rear_right_wheel,
                                                        tz_front_left_wheel,tz_front_right_wheel,tz_rear_left_wheel,tz_rear_right_wheel).finished();
   
-  const Eigen::Matrix<Scalar,3,4> radius_matrix = (Eigen::Matrix<Scalar,3,4>() <<
-                                                   0,0,0,0,
-                                                   0,0,0,0,
-                                                   -tire_radius,-tire_radius,-tire_radius,-tire_radius).finished();
+  const Eigen::Matrix<Scalar,3,1> radius_vec = (Eigen::Matrix<Scalar,3,1>() << 0,0,-tire_radius).finished();
   
   //get the matrix that transforms from base to world frame
-  //THis matrix also expresses 
-  Eigen::Matrix<Scalar,3,3> rot = toMatrixRotation(X[0],X[1],X[2],X[3]);
+  Eigen::Matrix<Scalar,3,3> base_rot = toMatrixRotation(X[0],X[1],X[2],X[3]);
   
-  //this is like the end effector if it was a quadruped. 
-  const Eigen::Matrix<Scalar,3,4> end_pos_matrix = rot*(tire_translations + radius_matrix);
+  Eigen::Matrix<Scalar,3,4> end_pos_matrix = base_rot*tire_translations;
+  Eigen::Matrix<Scalar,3,1> end_pos_tire_joint;
+  
+  int max_checks = 10;
+  Scalar test_angle;
+  Scalar max_angle = -M_PI*.25;
+  Scalar test_sinkage;
+  Scalar max_sinkage;
+  
+  Eigen::Matrix<Scalar,3,1> test_pos;
+  Eigen::Matrix<Scalar,3,3> test_rot;
+  Eigen::Matrix<Scalar,3,3> best_rot;
   
   for(int ii = 0; ii < 4; ii++){
-    cpt_rots[ii] = rot;
-    cpt_pts[ii][0] = end_pos_matrix(0,ii) + X[4];
-    cpt_pts[ii][1] = end_pos_matrix(1,ii) + X[5];
-    cpt_pts[ii][2] = end_pos_matrix(2,ii) + X[6];
+    end_pos_tire_joint[0] = end_pos_matrix(0,ii) + X[4]; //real world position of tire joint.
+    end_pos_tire_joint[1] = end_pos_matrix(1,ii) + X[5];
+    end_pos_tire_joint[2] = end_pos_matrix(2,ii) + X[6];
+    
+    cpt_pts[ii] = end_pos_tire_joint; //center of the tire joint. 
+    
+    //need to find the cpt point between tire and soil to determine the
+    //orientation of the reaction forces frame.
+    
+    max_sinkage = 0;
+    best_rot = Eigen::Matrix<Scalar,3,3>::Identity();
+    for(int jj = 0; jj < max_checks; jj++){
+      test_angle = max_angle - (2*max_angle*jj/((Scalar) max_checks - 1)); //test_angle ranges from +-max_angle
+      roty(test_rot, test_angle);
+      test_rot = base_rot*test_rot;
+      
+      test_pos = end_pos_tire_joint + test_rot*radius_vec; //a point on the edge of the tire.
+      test_sinkage = get_altitude(test_pos[0],test_pos[1]) - test_pos[2];
+      
+      if(test_sinkage > max_sinkage){
+        best_rot = test_rot; //orientation of cpt
+        max_sinkage = test_sinkage;
+      }
+    }
+    
+    sinkages[ii] = max_sinkage;
+    cpt_rots[ii] = best_rot;
   }
 }
 
-void HybridDynamics::get_tire_sinkages(const Eigen::Matrix<Scalar,3,1> *cpt_points, Scalar *sinkages){
-  const Scalar altitude = 0;
-  sinkages[0] = altitude - cpt_points[0][2];
-  sinkages[1] = altitude - cpt_points[1][2];
-  sinkages[2] = altitude - cpt_points[2][2];
-  sinkages[3] = altitude - cpt_points[3][2];
-}
-
-void HybridDynamics::get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,3,1> *cpt_vels){
+void HybridDynamics::get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &X,
+                                       const Eigen::Matrix<Scalar,3,3> *cpt_rots,
+                                       Eigen::Matrix<Scalar,3,1> *cpt_vels){
+  
   const Eigen::Matrix<Scalar,3,4> tire_translations = (Eigen::Matrix<Scalar,3,4>() <<
                                                        tx_front_left_wheel,tx_front_right_wheel,tx_rear_left_wheel,tx_rear_right_wheel,
                                                        ty_front_left_wheel,ty_front_right_wheel,ty_rear_left_wheel,ty_rear_right_wheel,
                                                        tz_front_left_wheel,tz_front_right_wheel,tz_rear_left_wheel,tz_rear_right_wheel).finished();
   
-  const Eigen::Matrix<Scalar,3,4> radius_matrix = (Eigen::Matrix<Scalar,3,4>() <<
-                                                   0,0,0,0,
-                                                   0,0,0,0,
-                                                   -tire_radius,-tire_radius,-tire_radius,-tire_radius).finished();
-  
-  //this is like the end effector if it was a quadruped. 
-  const Eigen::Matrix<Scalar,3,4> end_pos_matrix = tire_translations + radius_matrix;
+  const Eigen::Matrix<Scalar,3,1> radius_vec = (Eigen::Matrix<Scalar,3,1>() << 0,0,-tire_radius).finished();
+  Eigen::Matrix<Scalar,3,3> base_rot = toMatrixRotation(X[0],X[1],X[2],X[3]);
+  Eigen::Matrix<Scalar,3,3> temp_rot;
+  Eigen::Matrix<Scalar,3,1> temp_vec;
   
   //vel of base_link expressed in base link frame.
   Eigen::Matrix<Scalar,3,1> lin_vel(X[14], X[15], X[16]);
   Eigen::Matrix<Scalar,3,1> ang_vel(X[11], X[12], X[13]);
 
+  Eigen::Matrix<Scalar,3,1> end_pos;
   for(int ii = 0; ii < 4; ii++){
-    Eigen::Matrix<Scalar,3,3> r_ss;
-    r_ss << 0., -end_pos_matrix(2,ii), end_pos_matrix(1,ii),
-      end_pos_matrix(2,ii), 0., -end_pos_matrix(0,ii),
-      -end_pos_matrix(1,ii), end_pos_matrix(0,ii), 0.;
+    temp_vec[0] = tire_translations(0,ii);
+    temp_vec[1] = tire_translations(1,ii);
+    temp_vec[2] = tire_translations(2,ii);
     
+    //temp_rot transforms from cpt frame to base frame
+    //cpt_rots[ii] = base_rot*temp_rot
+    temp_rot = base_rot.transpose()*cpt_rots[ii]; 
+    //temp_vec is the displacement from vehicle base frame -> tire joint
+    //second part of this line is the displacement from tire joint -> contact point
+    end_pos = temp_vec + (temp_rot*radius_vec);
+    
+    Eigen::Matrix<Scalar,3,3> r_ss;
+    r_ss << 0., -end_pos(2), end_pos(1),
+      end_pos(2), 0., -end_pos(0),
+      -end_pos(1), end_pos(0), 0.;
+    
+    //this is the linear velocity at the cpt point, expressed in the base frame
     cpt_vels[ii] = lin_vel - (r_ss*ang_vel);
+    
+    //go from base frame to cpt frame
+    cpt_vels[ii] = temp_rot.transpose()*cpt_vels[ii];
   }
   
   //Only interested in the linear velocities of the cpt points. Maybe we can include angular later.
@@ -203,14 +252,14 @@ void HybridDynamics::get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &
 void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces){
   Eigen::Matrix<Scalar,3,1> cpt_points[4];  //world frame position of cpt frames
   Eigen::Matrix<Scalar,3,3> cpt_rots[4];    //world orientation of cpt frames
-  get_tire_cpts(X, cpt_points, cpt_rots);
-  
   Scalar sinkages[4];
-  get_tire_sinkages(cpt_points, sinkages); //This is going to have to look things up in a map one day.
+  get_tire_cpts_sinkages(X, cpt_points, cpt_rots, sinkages);
   
   //get the velocity of each tire contact point expressed in the contact point frame
   Eigen::Matrix<Scalar,3,1> cpt_vels[4];
-  get_tire_cpt_vels(X, cpt_vels);
+  get_tire_cpt_vels(X, cpt_rots, cpt_vels);
+  
+  Eigen::Matrix<Scalar,3,3> base_rot = toMatrixRotation(X[0],X[1],X[2],X[3]);
   
   //We now have sinkage and velocity of each tire contact point
   //Next we need to compute tire-soil reaction forces
@@ -236,7 +285,7 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     Scalar vel_x_tan = tire_radius*X[17+ii]; //17 is the idx that tire velocities start at.
     Scalar slip_ratio;  //longitudinal slip
     Scalar slip_angle;  //
-
+    
     if(vel_x_tan == 0){
       if(cpt_vels[ii][0] == 0){
         slip_ratio = 0;
@@ -261,7 +310,7 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
       slip_angle = atan(cpt_vels[ii][1] / fabs(cpt_vels[ii][0]));
     }
     
-    if(sinkages[ii] < 0)
+    if(sinkages[ii] <= 0)
       continue;
     
     features[0] = sinkages[ii];
@@ -294,29 +343,30 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     lin_force[0] = forces[0];
     lin_force[1] = forces[1];
     lin_force[2] = forces[2];
+
+    //Convert from tire_cpt_frame to tire_joint_frame
+    //cpt_rots = base_rot*tire_cpt_rot
+    //next line equals tire_cpt_rot*lin_force
+    lin_force = base_rot.transpose()*cpt_rots[ii]*lin_force;
     
     ang_force[0] = 0;
     ang_force[1] = 0; //forces[3];
     ang_force[2] = 0;
+        
+    //Convert from cpt frame to world frame.
+    Eigen::Matrix<Scalar,3,1> cpt_vel_world = cpt_rots[ii]*cpt_vels[ii];
     
-    //Convert from world orientation to tire_cpt orientation
-    //So that reaction forces are oriented with the surface normal
-    Eigen::Matrix<Scalar,3,1> temp_vel = cpt_rots[ii]*cpt_vels[ii];
-    //ang_force = cpt_rots[ii].transpose()*ang_force;
-    
-    if(temp_vel[2] > 0){
+    if(cpt_vel_world[2] > 0){
       lin_force[2] *= .1;
     }
-    //lin_force[2] -= 100*cpt_vels[ii][2];
-    
-    //lin_force = cpt_rots[ii].transpose()*lin_force;
     
     Force wrench;
+    //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
     wrench[0] = ang_force[0];
     wrench[1] = -ang_force[2];
     wrench[2] = ang_force[1];
     wrench[3] = lin_force[0];
-    wrench[4] = -lin_force[2]; //forces[2];     //normal force Fz maps to force in Y direction due to Robcogen's choice of coordinate frame for joints.
+    wrench[4] = -lin_force[2];
     wrench[5] = lin_force[1];
     
     ext_forces[orderedLinkIDs[ii+1]] = wrench;  
