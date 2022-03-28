@@ -1,11 +1,12 @@
 #include "VerifyModel.h"
 #include "TireNetwork.h"
+#include "Model.h"
 
 //Good old fashioned spaghetti code. Enjoy.
 
 #define TIME_HORIZON 6.0f
 
-HybridDynamics *g_hybrid_model;
+Model *g_hybrid_model;
 Scalar z_stable;
 
 typedef struct{
@@ -179,8 +180,11 @@ void simulatePeriod(double start_time, Scalar *X_start, Scalar *X_end){
     g_hybrid_model->step(vl, vr);
   }
   
-  for(int i = 0; i < 21; i++){
-    X_end[i] = g_hybrid_model->state_[i];
+
+  Scalar state[g_hybrid_model->getStateDim()];
+  g_hybrid_model->getState(state);
+  for(int i = 0; i < g_hybrid_model->getStateDim(); i++){
+    X_end[i] = state[i];
   }
   
 }
@@ -225,7 +229,6 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
   
   Scalar trans_sum = 0;
   Scalar ang_sum = 0;
-  Scalar ang_err;
   
   int count = 0;
   
@@ -297,16 +300,15 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     x_err = Xn1[4] - gt_vec[j].x;
     y_err = Xn1[5] - gt_vec[j].y;
     
-    //temp_quat = tf::Quaternion(Xn1[0],Xn1[1],Xn1[2],Xn1[3]);
-    temp_quat = tf::Quaternion(0,0,0,1);
+    temp_quat = tf::Quaternion(Xn1[0],Xn1[1],Xn1[2],Xn1[3]);
     tf::Matrix3x3 m(temp_quat);
-    Scalar roll, pitch, yaw;
-    //m.getRPY(roll, pitch, yaw); //ignore rotation for now
+    tfScalar roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+    Scalar scalar_yaw = yaw; //this sucks.
     
-    yaw_err = fabs(yaw - gt_vec[j].yaw);
+    yaw_err = fabs(scalar_yaw - gt_vec[j].yaw);
     yaw_err = yaw_err > M_PI ?  yaw_err - (2*M_PI) : yaw_err;
     yaw_err = fabs(yaw_err);
-    yaw_err = 0;
     
     //ROS_INFO("Actual Values %f   %f   %f", Xn1[0], Xn1[1], yaw);
     //ROS_INFO("Error lin %f    yaw %f", sqrtf(x_err*x_err + y_err*y_err), yaw_err);
@@ -316,7 +318,9 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     
     Scalar rel_lin_err = CppAD::sqrt(x_err*x_err + y_err*y_err) / lin_displacement;
     Scalar rel_ang_err = yaw_err / ang_displacement;
-      
+    
+    ROS_INFO("Angular err %f disp %f", yaw_err, ang_displacement);
+    
     //ROS_INFO("Relative lin err %s       ang err %s", CppAD::to_string(rel_lin_err).c_str(), CppAD::to_string(rel_ang_err).c_str());
     //ROS_INFO("\n\n\n");
     
@@ -324,7 +328,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     ang_sum += rel_ang_err;
     
     //Only run first 6 seconds.
-    //break;
+    break;
   }
   
   ROS_INFO(" ");
@@ -417,15 +421,16 @@ void test_LD3_path(){
 
 
 void init_tests(){
-  HybridDynamics::start_log();
   g_hybrid_model = new HybridDynamics();
   
   g_hybrid_model->initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
   g_hybrid_model->settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
-  z_stable = g_hybrid_model->state_[6];
+
+  Scalar state[g_hybrid_model->getStateDim()];
+  g_hybrid_model->getState(state);
+  z_stable = state[6];
 }
 
 void del_tests(){
-  HybridDynamics::stop_log();
   delete g_hybrid_model;
 }

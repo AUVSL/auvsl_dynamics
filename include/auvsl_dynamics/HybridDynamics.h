@@ -10,6 +10,7 @@
 
 //My files
 #include "TireNetwork.h"
+#include "Model.h"
 
 //using namespace iit::Fancy;
 using Jackal::rcg::Scalar;
@@ -20,7 +21,7 @@ using Jackal::rcg::JointState;
 using Jackal::rcg::LinkDataMap;
 using Jackal::rcg::orderedLinkIDs;
 
-class HybridDynamics{
+class HybridDynamics : public Model{
 public:
   const static unsigned STATE_DIM = 21;
   const static unsigned CNTRL_DIM = 2;
@@ -28,29 +29,33 @@ public:
   HybridDynamics();
   ~HybridDynamics();
   
-  void log_vehicle_state();
-  void log_value(float *values);
+  void logVehicleState();
+  void logValue(float *values);
   
-  static void start_log();
-  static void stop_log();
+  void startLog(std::string log_filename, std::string debug_filename);
+  void stopLog();
   
   void initState();
   void initState(Scalar *start_state);
   void initStateCOM(Scalar *start_state);
   void step(Scalar vl, Scalar vr);
   void settle();
+  void getState(Scalar *state);
+  
+  unsigned getStateDim() const;
+  unsigned getControlDim() const;
   
   void Euler(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xt1, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u);
   void RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xt1, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u);
   void ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xd, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u);
   
   void get_tire_sinkages(const Eigen::Matrix<Scalar,3,1> *cpt_points, Scalar *sinkages);
-  void get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,3,1> *cpt_vels);
+  void get_tire_cpt_vels(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, const Eigen::Matrix<Scalar,3,3> *cpt_rots, Eigen::Matrix<Scalar,3,1> *cpt_vels);
   void get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, LinkDataMap<Force> &ext_forces);
-  void get_tire_cpts(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,3,1> *cpt_pts, Eigen::Matrix<Scalar,3,3> *cpt_rots);
+  void get_tire_cpts_sinkages(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,3,1> *cpt_pts, Eigen::Matrix<Scalar,3,3> *cpt_rots, Scalar *sinkages);
   
-  static std::ofstream log_file;
-  static std::ofstream debug_file;
+  std::ofstream log_file;
+  std::ofstream debug_file;
   static Scalar timestep; //The rate that nn_model operates at.
   
   //angular and linear vel are expressed in the body frame (I think)

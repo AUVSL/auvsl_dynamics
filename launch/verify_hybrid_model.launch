@@ -1,4 +1,4 @@
 <launch>
   <rosparam file="$(find auvsl_dynamics)/config/params.yaml"/>
-  <node name="verify_hybrid_model" pkg="auvsl_dynamics" type="verify_hybrid_model_node" output="screen" launch-prefix="gdb -ex run"/>
+  <node name="verify_hybrid_model" pkg="auvsl_dynamics" type="verify_hybrid_model_node" output="screen" launch-prefix=""/>
 </launch>
