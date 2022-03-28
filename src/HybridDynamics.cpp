@@ -37,7 +37,7 @@ Scalar HybridDynamics::timestep = .001;
 
 
 Scalar get_altitude(Scalar x, Scalar y){
-  return x*.1;
+  return x*.2;
 }
 
 
@@ -158,7 +158,7 @@ void HybridDynamics::get_tire_cpts_sinkages(const Eigen::Matrix<Scalar,STATE_DIM
   Eigen::Matrix<Scalar,3,4> end_pos_matrix = base_rot*tire_translations;
   Eigen::Matrix<Scalar,3,1> end_pos_tire_joint;
   
-  int max_checks = 10;
+  int max_checks = 100;
   Scalar test_angle;
   Scalar max_angle = -M_PI*.25;
   Scalar test_sinkage;
