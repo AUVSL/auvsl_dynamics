@@ -643,6 +643,7 @@ void train_model_on_dataset(float lr){
   for(int ii = 0; ii < 10000; ii++){
     loss = 0;
     count_total = 0;
+    float_dmodel_params = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(num_params,1);
     for(int jj = 1; jj <= 17; jj++){
       memset(odom_fn, 0, 100);
       //sprintf(odom_fn, "/home/justin/Downloads/CV3/extracted_data/odometry/%04d_odom_data.txt", jj);
