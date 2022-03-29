@@ -49,7 +49,7 @@ public:
   Eigen::Matrix<Scalar,num_hidden_nodes,1> bias1;
   Eigen::Matrix<Scalar,num_out_features,num_hidden_nodes> weight2;
   Eigen::Matrix<Scalar,num_out_features,1> bias2;
-
   
+  Eigen::Matrix<Scalar,3,2> linear_matrix;
 };
 

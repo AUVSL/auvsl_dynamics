@@ -416,7 +416,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
 
 //BackPropovaction. Oh yeah.
 //Propagate gradients deep into physical model for whatever nefarious purposes we can imagine
-void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, Eigen::Matrix<float,Eigen::Dynamic,1> &float_dmodel_params, int &count_total){
+Scalar fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, Eigen::Matrix<float,Eigen::Dynamic,1> &float_dmodel_params, int &count_total){
   Scalar Xn[HybridDynamics::STATE_DIM];
   Scalar Xn1[HybridDynamics::STATE_DIM];
   for(int i = 0; i < HybridDynamics::STATE_DIM; i++){
@@ -499,10 +499,12 @@ void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, Eigen:
   }
 
   
-  ROS_INFO("Batch Loss %f", CppAD::Value(loss/count));
+  //ROS_INFO("Batch Loss %f", CppAD::Value(loss/count));
   
   float_dmodel_params += batch_dmodel_params;
   count_total += count;
+  
+  return loss;
   
   //saveHybridNetwork();
   
@@ -628,7 +630,19 @@ void train_model_on_dataset(float lr){
   Eigen::Matrix<float,Eigen::Dynamic,1> float_dmodel_params = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(num_params,1);
   int count_total = 0;
   
+  Scalar loss = 0;
+  Scalar prev_loss = 10000;
+
+  ros::Time start_time = ros::Time::now();
+  char log_fn[100];
+  sprintf(log_fn, "/home/justin/loss/loss_%d.csv", start_time.sec);
+  std::ofstream log_csv;
+  log_csv.open(log_fn, std::ofstream::out);
+  log_csv << "loss,lr,norm\n";
+  
   for(int ii = 0; ii < 10000; ii++){
+    loss = 0;
+    count_total = 0;
     for(int jj = 1; jj <= 17; jj++){
       memset(odom_fn, 0, 100);
       //sprintf(odom_fn, "/home/justin/Downloads/CV3/extracted_data/odometry/%04d_odom_data.txt", jj);
@@ -647,11 +661,28 @@ void train_model_on_dataset(float lr){
     
       load_files(odom_fn, imu_fn, gt_fn);  
 
-      fileTrain(float_model_params, float_dmodel_params, count_total);
+      loss += fileTrain(float_model_params, float_dmodel_params, count_total);
       
     }
     
-    float_model_params = float_model_params - (lr_*float_dmodel_params/(float)count_total);
+    //if loss increased, then increase the learning rate.
+    if(loss > prev_loss){
+      //lr_ *= .1;
+    }
+    prev_loss = loss;
+        
+    
+    float grad_norm = 0;
+    for(int i = 0; i < num_params; i++){
+      grad_norm += (float_dmodel_params[i]*float_dmodel_params[i]);
+    }
+    grad_norm = sqrtf(grad_norm);
+    
+    ROS_INFO("Total Loss %f    lr %f   gradient norm %f", CppAD::Value(loss)/count_total, lr_, grad_norm);
+    log_csv << loss/count_total << ',' << lr_ << ',' << grad_norm << '\n';
+    log_csv.flush();
+    
+    float_model_params = float_model_params - lr_*float_dmodel_params/grad_norm; //count_total;
     saveHybridNetwork();
     
     // float_model_params[0] = float_model_params[0] - (lr_*float_dmodel_params[0]/(float)count_total);
@@ -690,12 +721,13 @@ void del_tests(){
 
 unsigned getNumWeights(){
   unsigned sum = 0;
-  sum += g_hybrid_model->weight0.rows()*g_hybrid_model->weight0.cols();
-  sum += g_hybrid_model->bias0.rows();
-  sum += g_hybrid_model->weight1.rows()*g_hybrid_model->weight1.cols();
-  sum += g_hybrid_model->bias1.rows();
-  sum += g_hybrid_model->weight2.rows()*g_hybrid_model->weight2.cols();
-  sum += g_hybrid_model->bias2.rows();
+  // sum += g_hybrid_model->weight0.rows()*g_hybrid_model->weight0.cols();
+  // sum += g_hybrid_model->bias0.rows();
+  // sum += g_hybrid_model->weight1.rows()*g_hybrid_model->weight1.cols();
+  // sum += g_hybrid_model->bias1.rows();
+  // sum += g_hybrid_model->weight2.rows()*g_hybrid_model->weight2.cols();
+  // sum += g_hybrid_model->bias2.rows();
+  sum += g_hybrid_model->linear_matrix.rows()*g_hybrid_model->linear_matrix.cols();
   return sum;
 }
 
@@ -711,12 +743,13 @@ void setModelWeights(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params, Matri
 
 void setModelParams(Eigen::Matrix<Scalar,Eigen::Dynamic,1> &model_params){
   unsigned cnt = 0;
-  setModelWeights(model_params, g_hybrid_model->weight0, cnt);
-  setModelWeights(model_params, g_hybrid_model->weight1, cnt);
-  setModelWeights(model_params, g_hybrid_model->weight2, cnt);
-  setModelWeights(model_params, g_hybrid_model->bias0, cnt);
-  setModelWeights(model_params, g_hybrid_model->bias1, cnt);
-  setModelWeights(model_params, g_hybrid_model->bias2, cnt);
+  // setModelWeights(model_params, g_hybrid_model->weight0, cnt);
+  // setModelWeights(model_params, g_hybrid_model->weight1, cnt);
+  // setModelWeights(model_params, g_hybrid_model->weight2, cnt);
+  // setModelWeights(model_params, g_hybrid_model->bias0, cnt);
+  // setModelWeights(model_params, g_hybrid_model->bias1, cnt);
+  // setModelWeights(model_params, g_hybrid_model->bias2, cnt);
+  setModelWeights(model_params, g_hybrid_model->linear_matrix, cnt);
 }
 
 
@@ -735,12 +768,13 @@ void getModelWeights(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, 
 
 void getModelParams(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params){
   unsigned cnt = 0;
-  getModelWeights(float_model_params, g_hybrid_model->weight0, cnt);
-  getModelWeights(float_model_params, g_hybrid_model->weight1, cnt);
-  getModelWeights(float_model_params, g_hybrid_model->weight2, cnt);
-  getModelWeights(float_model_params, g_hybrid_model->bias0, cnt);
-  getModelWeights(float_model_params, g_hybrid_model->bias1, cnt);
-  getModelWeights(float_model_params, g_hybrid_model->bias2, cnt);
+  // getModelWeights(float_model_params, g_hybrid_model->weight0, cnt);
+  // getModelWeights(float_model_params, g_hybrid_model->weight1, cnt);
+  // getModelWeights(float_model_params, g_hybrid_model->weight2, cnt);
+  // getModelWeights(float_model_params, g_hybrid_model->bias0, cnt);
+  // getModelWeights(float_model_params, g_hybrid_model->bias1, cnt);
+  // getModelWeights(float_model_params, g_hybrid_model->bias2, cnt);
+  getModelWeights(float_model_params, g_hybrid_model->linear_matrix, cnt);
 }
 
 template <typename MatrixType>
@@ -757,12 +791,13 @@ void saveHybridNetwork(){
   std::string filename;
   ros::param::get("/hybrid_network_file_name", filename);
   std::ofstream save_file(filename);
-  writeMatrixToFile(save_file, g_hybrid_model->weight0);
-  writeMatrixToFile(save_file, g_hybrid_model->weight1);
-  writeMatrixToFile(save_file, g_hybrid_model->weight2);
-  writeMatrixToFile(save_file, g_hybrid_model->bias0);
-  writeMatrixToFile(save_file, g_hybrid_model->bias1);
-  writeMatrixToFile(save_file, g_hybrid_model->bias2);
+  // writeMatrixToFile(save_file, g_hybrid_model->weight0);
+  // writeMatrixToFile(save_file, g_hybrid_model->weight1);
+  // writeMatrixToFile(save_file, g_hybrid_model->weight2);
+  // writeMatrixToFile(save_file, g_hybrid_model->bias0);
+  // writeMatrixToFile(save_file, g_hybrid_model->bias1);
+  // writeMatrixToFile(save_file, g_hybrid_model->bias2);
+  writeMatrixToFile(save_file, g_hybrid_model->linear_matrix);
 }
 
 template <typename MatrixType>
@@ -782,12 +817,14 @@ void loadHybridNetwork(){
   std::string filename;
   ros::param::get("/hybrid_network_file_name", filename);
   std::ifstream save_file(filename);
-  loadMatrixFromFile(save_file, g_hybrid_model->weight0);
-  loadMatrixFromFile(save_file, g_hybrid_model->weight1);
-  loadMatrixFromFile(save_file, g_hybrid_model->weight2);
-  loadMatrixFromFile(save_file, g_hybrid_model->bias0);
-  loadMatrixFromFile(save_file, g_hybrid_model->bias1);
-  loadMatrixFromFile(save_file, g_hybrid_model->bias2);
+  // loadMatrixFromFile(save_file, g_hybrid_model->weight0);
+  // loadMatrixFromFile(save_file, g_hybrid_model->weight1);
+  // loadMatrixFromFile(save_file, g_hybrid_model->weight2);
+  // loadMatrixFromFile(save_file, g_hybrid_model->bias0);
+  // loadMatrixFromFile(save_file, g_hybrid_model->bias1);
+  // loadMatrixFromFile(save_file, g_hybrid_model->bias2);
+  loadMatrixFromFile(save_file, g_hybrid_model->linear_matrix);
+  
 }
 
 

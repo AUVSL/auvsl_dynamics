@@ -30,6 +30,7 @@ HybridDynamics::HybridDynamics(){
   weight2 = .01*Eigen::Matrix<Scalar,num_out_features,num_hidden_nodes>::Random();
   bias2 = .01*Eigen::Matrix<Scalar,num_out_features,1>::Random();
   
+  linear_matrix = .01*Eigen::Matrix<Scalar,3,2>::Random();
 }
 
 HybridDynamics::~HybridDynamics(){
@@ -99,24 +100,27 @@ void HybridDynamics::Euler(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Ma
 
 
 
-void HybridDynamics::ODE2(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xd, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u){
-    Scalar vx = (u[0]*0.0542) + (u[1]*0.0370);
-    Scalar vy = (u[0]*0.0036) + (u[1]*-0.0035);
-    Scalar wz = (u[0]*-0.1743) + (u[1]*0.1749);
-    
-    Xd[0] = vx*CppAD::cos(X[2]) - vy*CppAD::sin(X[2]);
-    Xd[1] = vx*CppAD::sin(X[2]) + vy*CppAD::cos(X[2]);
-    Xd[2] = wz;
-
-    Xd[3] = 0;
-    Xd[4] = 0;
-    Xd[5] = 0;
+void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xd, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u){
+    // Scalar vx = (u[0]*0.0542) + (u[1]*0.0370);
+    // Scalar vy = (u[0]*0.0036) + (u[1]*-0.0035);
+    // Scalar wz = (u[0]*-0.1743) + (u[1]*0.1749);
+  Scalar vx = (u[0]*linear_matrix(0,0)) + (u[1]*linear_matrix(0,1));
+  Scalar vy = (u[0]*linear_matrix(1,0)) + (u[1]*linear_matrix(1,1));
+  Scalar wz = (u[0]*linear_matrix(2,0)) + (u[1]*linear_matrix(2,1));
+  
+  Xd[0] = vx*CppAD::cos(X[2]) - vy*CppAD::sin(X[2]);
+  Xd[1] = vx*CppAD::sin(X[2]) + vy*CppAD::cos(X[2]);
+  Xd[2] = wz;
+  
+  Xd[3] = 0;
+  Xd[4] = 0;
+  Xd[5] = 0;
 }
 
 
 //Vehicle ODE
 //A combination of forward dynamics, external forces, and quaternion derivative.
-void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xd, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u){
+void HybridDynamics::ODE2(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xd, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u){
   //input is vx_tire, vy_tire, tire_angular_vel
   //output is Fx, Fy
   Eigen::Matrix<Scalar,num_in_features,1> input_vec;

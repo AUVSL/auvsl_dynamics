@@ -24,13 +24,24 @@ int main(int argc, char **argv){
   //feenableexcept(FE_INVALID | FE_OVERFLOW);
   ros::init(argc, argv, "train_hybrid_model");
   ros::NodeHandle nh;
-
+  
+  double lr;
+  int load_from_file;
+  int test_first;
+  ros::param::get("/learn_rate", lr);
+  ros::param::get("/load_from_file", load_from_file);
+  ros::param::get("/test_first", test_first);
+  
   init_tests();
   //test_network_save_load();
-  //test_CV3_paths();
-  //loadHybridNetwork();
-  train_model_on_dataset(1e-4f);
-  test_CV3_paths();
+  
+  if(load_from_file){
+    loadHybridNetwork();
+  }
+  if(test_first){
+    test_CV3_paths();
+  }
+  train_model_on_dataset((float)lr);
   del_tests();
 }
 
