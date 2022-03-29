@@ -5,6 +5,8 @@
 
 #pragma once
 
+using Jackal::rcg::Scalar;
+
 //Abstract Base Class.
 class Model{
 public:

@@ -35,15 +35,15 @@ public:
   void startLog(std::string log_filename, std::string debug_filename);
   void stopLog();
   
-  void initState();
-  void initState(Scalar *start_state);
-  void initStateCOM(Scalar *start_state);
-  void step(Scalar vl, Scalar vr);
-  void settle();
-  void getState(Scalar *state);
+  void initState() override;
+  void initState(Scalar *start_state) override;
+  void initStateCOM(Scalar *start_state) override;
+  void step(Scalar vl, Scalar vr) override;
+  void settle() override;
+  void getState(Scalar *state) override;
   
-  unsigned getStateDim() const;
-  unsigned getControlDim() const;
+  unsigned getStateDim() const override;
+  unsigned getControlDim() const override;
   
   void Euler(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xt1, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u);
   void RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xt1, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u);

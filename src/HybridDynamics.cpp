@@ -44,7 +44,7 @@ Scalar get_altitude(Scalar x, Scalar y){
 
 
 
-HybridDynamics::HybridDynamics(){
+HybridDynamics::HybridDynamics() : Model(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
   
   //For more information on these, see TerrainMap.cpp and TerrainMap.h
@@ -57,7 +57,7 @@ HybridDynamics::HybridDynamics(){
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);
   f_transforms.fr_base_link_X_fr_front_left_wheel_link_COM.update(q);
-
+  
   std::string log_filename;
   std::string debug_filename;
   ros::param::get("/xout_log_file_name", log_filename);
@@ -180,9 +180,9 @@ void HybridDynamics::get_tire_cpts_sinkages(const Eigen::Matrix<Scalar,STATE_DIM
   Eigen::Matrix<Scalar,3,4> end_pos_matrix = base_rot*tire_translations;
   Eigen::Matrix<Scalar,3,1> end_pos_tire_joint;
   
-  int max_checks = 100;
+  int max_checks = 10;
   Scalar test_angle;
-  Scalar max_angle = -M_PI*.25;
+  Scalar max_angle = -M_PI*.00025;
   Scalar test_sinkage;
   Scalar max_sinkage;
   
@@ -437,7 +437,6 @@ void HybridDynamics::RK4(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
   Xt1[1] /= temp_norm;
   Xt1[2] /= temp_norm;
   Xt1[3] /= temp_norm;
-
 }
 
 void HybridDynamics::Euler(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matrix<Scalar,STATE_DIM,1> &Xt1, Eigen::Matrix<Scalar,CNTRL_DIM,1> &u){

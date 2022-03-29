@@ -1,12 +1,13 @@
 #include "VerifyModel.h"
 #include "TireNetwork.h"
 #include "Model.h"
+#include "CombinedModel.h"
 
 //Good old fashioned spaghetti code. Enjoy.
 
 #define TIME_HORIZON 6.0f
 
-Model *g_hybrid_model;
+CombinedModel g_hybrid_model;
 Scalar z_stable;
 
 typedef struct{
@@ -91,7 +92,7 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
   ODOM_LINE odom_line;
   GT_LINE gt_line;
   IMU_LINE imu_line;
-
+  
   odom_vec.clear();
   gt_vec.clear();
   imu_vec.clear();
@@ -107,12 +108,13 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
   while(readIMUFile(imu_file, imu_line)){
     imu_vec.push_back(imu_line);
   }
+
   
   
   Scalar *vx_list = new Scalar[gt_vec.size()];
   Scalar *vy_list = new Scalar[gt_vec.size()];
   
-  double dt;
+  double dt = 0;
   for(int i = 0; i < gt_vec.size()-1; i++){
     dt = gt_vec[i+1].ts - gt_vec[i].ts;
     vx_list[i] = (gt_vec[i+1].x - gt_vec[i].x)/dt;
@@ -124,9 +126,9 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
   
   
   //moving average
-  Scalar temp_x;
-  Scalar temp_y;
-  int cnt;
+  Scalar temp_x = 0;
+  Scalar temp_y = 0;
+  int cnt = 0;
   for(int i = 0; i < gt_vec.size()-1; i++){
     temp_x = 0;
     temp_y = 0;
@@ -139,11 +141,13 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
     gt_vec[i].vx = temp_x / (float)cnt;
     gt_vec[i].vy = temp_y / (float)cnt;
   }
-  
+
+  gt_vec[gt_vec.size()-1].vx = 0;
+  gt_vec[gt_vec.size()-1].vy = 0; 
   
   ROS_INFO("gt vec size %lu", gt_vec.size());
   ROS_INFO("odom vec size %lu", odom_vec.size());
-  ROS_INFO("imu vec size %lu", odom_vec.size());
+  ROS_INFO("imu vec size %lu", imu_vec.size());
   
 
   odom_file.close();
@@ -152,6 +156,31 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
   
   delete[] vx_list;
   delete[] vy_list;
+
+  /*
+  for(unsigned i = 0; i < odom_vec.size(); i++){
+    odom_vec[i].ts = i;
+    odom_vec[i].vl = 0;
+    odom_vec[i].vr = 0;
+  }
+
+  for(unsigned i = 0; i < imu_vec.size(); i++){
+    imu_vec[i].ts = i;
+    imu_vec[i].wx = 0;
+    imu_vec[i].wy = 0;
+    imu_vec[i].wz = 0;
+  }
+
+  for(unsigned i = 0; i < gt_vec.size(); i++){
+    gt_vec[i].ts = i;
+    gt_vec[i].x = 0;
+    gt_vec[i].y = 0;
+    gt_vec[i].vx = 0;
+    gt_vec[i].vy = 0;
+    gt_vec[i].yaw = 0;
+  }
+  */
+  
 }
 //Done parsing the csv's
 
@@ -171,19 +200,19 @@ void simulatePeriod(double start_time, Scalar *X_start, Scalar *X_end){
     }
   }
   
-  g_hybrid_model->initStateCOM(X_start);  
+  g_hybrid_model.initStateCOM(X_start);  
   
   Scalar vl, vr;
   for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < TIME_HORIZON; idx++){
     vl = odom_vec[idx].vl;
     vr = odom_vec[idx].vr;
-    g_hybrid_model->step(vl, vr);
+    g_hybrid_model.step(vl, vr);
   }
   
 
-  Scalar state[g_hybrid_model->getStateDim()];
-  g_hybrid_model->getState(state);
-  for(int i = 0; i < g_hybrid_model->getStateDim(); i++){
+  Scalar state[g_hybrid_model.getStateDim()];
+  g_hybrid_model.getState(state);
+  for(int i = 0; i < g_hybrid_model.getStateDim(); i++){
     X_end[i] = state[i];
   }
   
@@ -328,7 +357,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     ang_sum += rel_ang_err;
     
     //Only run first 6 seconds.
-    break;
+    //break;
   }
   
   ROS_INFO(" ");
@@ -421,16 +450,16 @@ void test_LD3_path(){
 
 
 void init_tests(){
-  g_hybrid_model = new HybridDynamics();
+  //g_hybrid_model = new HybridDynamics();
   
-  g_hybrid_model->initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
-  g_hybrid_model->settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
-
-  Scalar state[g_hybrid_model->getStateDim()];
-  g_hybrid_model->getState(state);
+  g_hybrid_model.initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
+  g_hybrid_model.settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
+  
+  Scalar state[g_hybrid_model.getStateDim()];
+  g_hybrid_model.getState(state);
   z_stable = state[6];
 }
 
 void del_tests(){
-  delete g_hybrid_model;
+  //delete g_hybrid_model;
 }
