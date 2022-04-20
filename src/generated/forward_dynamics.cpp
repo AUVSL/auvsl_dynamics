@@ -65,6 +65,8 @@ void Jackal::rcg::ForwardDynamics::fd(
     //  - The bias force term:
     front_left_wheel_link_p += vxIv(front_left_wheel_link_v, front_left_wheel_link_AI);
     
+    
+    
     // + Link front_right_wheel_link
     //  - The spatial velocity:
     front_right_wheel_link_v = (motionTransforms-> fr_front_right_wheel_link_X_fr_base_link) * base_link_v;
