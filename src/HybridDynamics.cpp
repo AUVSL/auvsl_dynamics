@@ -61,11 +61,18 @@ HybridDynamics::HybridDynamics(){
   // bekker_params[3] = 0.202991;
   // bekker_params[4] = 0.532371;
 
-  bekker_params[0] = 29.760471;
+  // bekker_params[0] = 29.760471;
+  // bekker_params[1] = 2083.000000;
+  // bekker_params[2] = 0.899166;
+  // bekker_params[3] = 0.208863;
+  // bekker_params[4] = 0.536965;
+
+  bekker_params[0] = 29.760508;
   bekker_params[1] = 2083.000000;
-  bekker_params[2] = 0.899166;
-  bekker_params[3] = 0.208863;
-  bekker_params[4] = 0.536965;
+  bekker_params[2] = 0.889755;
+  bekker_params[3] = 0.211741;
+  bekker_params[4] = 0.556238;
+  
   
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);
