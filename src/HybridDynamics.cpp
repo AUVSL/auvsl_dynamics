@@ -1,4 +1,5 @@
 #include "HybridDynamics.h"
+#include "BekkerModel.h"
 #include "declarations.h"
 #include "miscellaneous.h"
 #include "utils.h"
@@ -38,7 +39,7 @@ Scalar HybridDynamics::timestep = .001;
 
 
 Scalar get_altitude(Scalar x, Scalar y){
-  return 0; //x*.2;
+  return std::max(-.5f*std::cos(2*x), 0.0f); //x*.2;
 }
 
 
@@ -295,6 +296,7 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
   
   Eigen::Matrix<Scalar,TireNetwork::num_in_features,1> features;
   Eigen::Matrix<Scalar,TireNetwork::num_out_features,1> forces;
+  
   features[3] = bekker_params[0];
   features[4] = bekker_params[1];
   features[5] = bekker_params[2];
@@ -340,6 +342,7 @@ void HybridDynamics::get_tire_f_ext(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, 
     features[2] = slip_angle;
     
     TireNetwork::forward(features, forces);
+    //forces = tire_model_bekker(features);
     
     if(X[17+ii] > 0){
       forces[0] = forces[0];
@@ -557,6 +560,8 @@ void HybridDynamics::startLog(std::string log_filename, std::string debug_filena
 
   debug_file.open(debug_filename.c_str());
   debug_file << "zr1,zr2,zr3,zr4\n";
+
+  ROS_INFO("Opening log file %s: %d", log_filename.c_str(), log_file.is_open());
 }
 
 
@@ -564,7 +569,7 @@ void HybridDynamics::logVehicleState(){
   if(!log_file.is_open()){
     return;
   }
-
+  
   //Log vehicle state in the format that spatial v2 needs.
   log_file << state_[3] << ','; //spatial v2 needs the quaternion in w,x,y,z format.
   log_file << state_[0] << ',';

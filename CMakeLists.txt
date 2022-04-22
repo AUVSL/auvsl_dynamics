@@ -76,6 +76,8 @@ add_executable(verify_hybrid_model_node
   src/TireNetwork.cpp
   src/CombinedModel.cpp
   src/NNJackalModel.cpp
+  src/BekkerModel.cpp
+  
   src/generated/forward_dynamics.cpp
   src/generated/inertia_properties.cpp
   src/generated/inverse_dynamics.cpp

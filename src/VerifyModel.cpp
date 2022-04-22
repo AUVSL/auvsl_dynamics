@@ -7,7 +7,7 @@
 
 #define TIME_HORIZON 6.0f
 
-CombinedModel g_hybrid_model;
+HybridDynamics *g_hybrid_model;
 Scalar z_stable;
 
 typedef struct{
@@ -200,19 +200,19 @@ void simulatePeriod(double start_time, Scalar *X_start, Scalar *X_end){
     }
   }
   
-  g_hybrid_model.initStateCOM(X_start);  
+  g_hybrid_model->initStateCOM(X_start);  
   
   Scalar vl, vr;
   for(unsigned idx = start_idx; (odom_vec[idx].ts - start_time) < TIME_HORIZON; idx++){
     vl = odom_vec[idx].vl;
     vr = odom_vec[idx].vr;
-    g_hybrid_model.step(vl, vr);
+    g_hybrid_model->step(vl, vr);
   }
   
 
-  Scalar state[g_hybrid_model.getStateDim()];
-  g_hybrid_model.getState(state);
-  for(int i = 0; i < g_hybrid_model.getStateDim(); i++){
+  Scalar state[g_hybrid_model->getStateDim()];
+  g_hybrid_model->getState(state);
+  for(int i = 0; i < g_hybrid_model->getStateDim(); i++){
     X_end[i] = state[i];
   }
   
@@ -348,7 +348,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
     Scalar rel_lin_err = CppAD::sqrt(x_err*x_err + y_err*y_err) / lin_displacement;
     Scalar rel_ang_err = yaw_err / ang_displacement;
     
-    ROS_INFO("Angular err %f disp %f", yaw_err, ang_displacement);
+    ROS_INFO("Lin %f  Ang %f", rel_lin_err, rel_ang_err);
     
     //ROS_INFO("Relative lin err %s       ang err %s", CppAD::to_string(rel_lin_err).c_str(), CppAD::to_string(rel_ang_err).c_str());
     //ROS_INFO("\n\n\n");
@@ -394,7 +394,7 @@ void test_CV3_paths(){
   log_csv << "lin_err,ang_err\n";
   
   //Remember this needs to start at 1.
-  for(int jj = 1; jj <= 144; jj++){
+  for(int jj = 34; jj <= 34; jj++){
     memset(odom_fn, 0, 100);
     sprintf(odom_fn, "/home/justin/Downloads/CV3/extracted_data/odometry/%04d_odom_data.txt", jj);
     ROS_INFO("Reading Odom File %s", odom_fn);
@@ -450,13 +450,13 @@ void test_LD3_path(){
 
 
 void init_tests(){
-  //g_hybrid_model = new HybridDynamics();
+  g_hybrid_model = new HybridDynamics();
   
-  g_hybrid_model.initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
-  g_hybrid_model.settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
+  g_hybrid_model->initState(); //set start pos to 0,0,.16 and orientation to 0,0,0,1
+  g_hybrid_model->settle();     //allow the 3d vehicle to come to rest and reach steady state, equillibrium sinkage for tires.
   
-  Scalar state[g_hybrid_model.getStateDim()];
-  g_hybrid_model.getState(state);
+  Scalar state[g_hybrid_model->getStateDim()];
+  g_hybrid_model->getState(state);
   z_stable = state[6];
 }
 
