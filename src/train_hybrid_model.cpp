@@ -40,6 +40,7 @@ int main(int argc, char **argv){
   }
   if(test_first){
     test_CV3_paths();
+    test_LD3_path();
   }
   train_model_on_dataset((float)lr);
   del_tests();

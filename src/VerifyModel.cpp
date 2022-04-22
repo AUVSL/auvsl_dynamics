@@ -229,7 +229,7 @@ Scalar forwardPropagateHorizon(double start_time, Scalar *X_start,
       return 0;
     }
   }
-
+  
   //ROS_INFO("dmodel_params");
   //ROS_INFO("%f %f %f %f %f %f", dmodel_params[0], dmodel_params[1], dmodel_params[2], dmodel_params[3], dmodel_params[4], dmodel_params[5]);
   
@@ -614,7 +614,7 @@ void test_LD3_path(){
 //This function just does the gradient descent.
 //Doesnt derive the gradient.
 void train_model_on_dataset(float lr){
-  time_horizon = 6;
+  time_horizon = 12;
   //Need to derive expression for gradient wrt loss function.
   lr_ = lr;
   
