@@ -142,11 +142,19 @@ int main(int argc, char **argv){
   ros::init(argc, argv, "search_bekker_params");
   ros::NodeHandle nh;
   
-  
+
+  double lr;
+  int test_first;
+  ros::param::get("/learn_rate", lr);
+  ros::param::get("/test_first", test_first);
   
   init_tests();
-  //test_LD3_path();
-  test_CV3_paths();
-  //train_model_on_dataset(1e-4f);
+  
+  if(test_first){
+    test_CV3_paths();
+    test_LD3_path();
+  }
+  
+  train_model_on_dataset(1e-3f);
   del_tests();
 }

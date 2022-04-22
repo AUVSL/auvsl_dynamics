@@ -42,28 +42,30 @@ HybridDynamics::HybridDynamics(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
   
   //For more information on these, see TerrainMap.cpp and TerrainMap.h
-  /*
-  bekker_params[0] = 29.76;           //kc
-  bekker_params[1] = 2083;            //kphi
-  bekker_params[2] = .8;              //n0
-  bekker_params[3] = 0;               //n1
-  bekker_params[4] = 22.5*M_PI/180.0; //phi
-  */
-  /*
-  bekker_params[0] = 29.760157;
-  bekker_params[1] = 2083;
-  bekker_params[2] = .875123;
-  bekker_params[3] = .113009;
-  bekker_params[4] = .404438;
-  */  
-
-  bekker_params[0] = 32.666603;
-  bekker_params[1] = 2091.618652;
-  bekker_params[2] = .891160;
-  bekker_params[3] = .145637;
-  bekker_params[4] = .415378;
-
   
+  // bekker_params[0] = 29.76;           //kc
+  // bekker_params[1] = 2083;            //kphi
+  // bekker_params[2] = .8;              //n0
+  // bekker_params[3] = 0;               //n1
+  // bekker_params[4] = 22.5*M_PI/180.0; //phi
+
+  // bekker_params[0] = 29.760334;
+  // bekker_params[1] = 2083.000000;
+  // bekker_params[2] = 0.910965;
+  // bekker_params[3] = 0.190479;
+  // bekker_params[4] = 0.455691;
+  
+  // bekker_params[0] = 29.760464;
+  // bekker_params[1] = 2083.000;
+  // bekker_params[2] = 0.897795;
+  // bekker_params[3] = 0.202991;
+  // bekker_params[4] = 0.532371;
+
+  bekker_params[0] = 29.760471;
+  bekker_params[1] = 2083.000000;
+  bekker_params[2] = 0.899166;
+  bekker_params[3] = 0.208863;
+  bekker_params[4] = 0.536965;
   
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);
@@ -465,8 +467,14 @@ void HybridDynamics::start_log(){
   log_file << "qw,qx,qy,qz,x,y,z,wx,wy,wz,vx,vy,vz,q1,q2,q3,q4,qd1,qd2,qd3,qd4\n";
 
   ros::param::get("/debug_log_file_name", filename);
+  if(debug_file.is_open()){
+    debug_file.close();
+  }
   debug_file.open(filename.c_str());
   debug_file << "kc,kphi,n0,n1,phi\n";
+
+  ROS_INFO("Debug File is open?: %d", debug_file.is_open());
+  ROS_INFO("debug filename %s", filename.c_str());
 }
 
 void HybridDynamics::log_vehicle_state(){
@@ -505,11 +513,14 @@ void HybridDynamics::log_vehicle_state(){
 }
 
 void HybridDynamics::log_value(float *values){
+  ROS_INFO("Debug File is failed: %d", debug_file.fail());
   debug_file << values[0] << ',';
   debug_file << values[1] << ',';
   debug_file << values[2] << ',';
   debug_file << values[3] << ',';
   debug_file << values[4] << '\n';
+  debug_file.flush();
+  
 }
 
 void HybridDynamics::stop_log(){

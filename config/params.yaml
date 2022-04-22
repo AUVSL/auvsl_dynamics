@@ -1,2 +1,4 @@
 xout_log_file_name: "/home/justin/xout.csv"
 debug_log_file_name: "/home/justin/log.csv" 
+learn_rate: .1
+test_first: 1

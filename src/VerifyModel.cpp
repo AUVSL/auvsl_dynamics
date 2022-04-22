@@ -212,6 +212,7 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
   ROS_INFO("Loss %f", CppAD::Value(lin_err));
 
   if(fabs(CppAD::Value(lin_err)) > 10 || CppAD::isnan(lin_err)){
+    ROS_INFO("Loss exploded");
     return; //hack. If this conditions triggers, something bad happened during the forward pass. So ignore.
   }
   
@@ -223,6 +224,7 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
 
   for(int ii = 0; ii < 5; ii++){
     if(fabs(dmodel_params[ii]) > 10 || CppAD::isnan(dmodel_params[ii])){
+      ROS_INFO("gradient exploded");
       dmodel_params[0] = 0;
       dmodel_params[1] = 0;
       dmodel_params[2] = 0;
@@ -437,7 +439,7 @@ void simulateFile(Scalar &lin_err_sum_ret, Scalar &ang_err_sum_ret, unsigned &co
 
 //BackPropovaction. Oh yeah.
 //Propagate gradients deep into physical model for whatever nefarious purposes we can imagine
-void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params){
+void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, Eigen::Matrix<float,Eigen::Dynamic,1> &batch_dmodel_params){
   Scalar Xn[21];
   Scalar Xn1[21];
   for(int i = 0; i < 21; i++){
@@ -454,9 +456,6 @@ void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params){
   Scalar ang_err;
   
   int count = 0;
-  
-  Eigen::Matrix<float,Eigen::Dynamic,1> batch_dmodel_params(5);
-  batch_dmodel_params = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(5,1); //init this sum.
   
   //so it doesnt skip the first one.
   double time = 0;
@@ -515,33 +514,14 @@ void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params){
     Xn[16] = 0;
     
     Eigen::Matrix<float,Eigen::Dynamic,1> dmodel_params(5);
+    dmodel_params = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(5,1);
     //given initial conditions at start time of the control sequence, calc the derivatve of loss wrt model params
-    ROS_INFO("%f %f %f %f %f", float_model_params[0], float_model_params[1], float_model_params[2], float_model_params[3], float_model_params[4]);
+    //ROS_INFO("%f %f %f %f %f", float_model_params[0], float_model_params[1], float_model_params[2], float_model_params[3], float_model_params[4]);
     forwardPropagateHorizon(time, Xn, float_model_params, dmodel_params);
     batch_dmodel_params += dmodel_params;
     
     count++;
   }
-
-  batch_dmodel_params = batch_dmodel_params / (float)count;
-  float_model_params[0] = float_model_params[0] - (10000*lr_*batch_dmodel_params[0]);
-  float_model_params[1] = float_model_params[1] - (1000000*lr_*batch_dmodel_params[1]);
-  float_model_params[2] = float_model_params[2] - (lr_*batch_dmodel_params[2]);
-  float_model_params[3] = float_model_params[3] - (lr_*batch_dmodel_params[3]);
-  float_model_params[4] = float_model_params[4] - (lr_*batch_dmodel_params[4]);
-
-  ROS_INFO("\n\n");
-  ROS_INFO("======================================================================================");
-  ROS_INFO("%f %f %f %f %f", float_model_params[0], float_model_params[1], float_model_params[2], float_model_params[3], float_model_params[4]);
-  ROS_INFO("======================================================================================\n\n\n");
-  
-  float temp_values[5];
-  temp_values[0] = float_model_params[0];
-  temp_values[1] = float_model_params[1];
-  temp_values[2] = float_model_params[2];
-  temp_values[3] = float_model_params[3];
-  temp_values[4] = float_model_params[4];
-  g_hybrid_model->log_value(temp_values);
   
   //ROS_INFO("Sinkage Exponent %f", float_model_params[0]);
   
@@ -654,9 +634,12 @@ void train_model_on_dataset(float lr){
   float_model_params[2] = CppAD::Value(g_hybrid_model->bekker_params[2]);
   float_model_params[3] = CppAD::Value(g_hybrid_model->bekker_params[3]);
   float_model_params[4] = CppAD::Value(g_hybrid_model->bekker_params[4]);
+
+  Eigen::Matrix<float,Eigen::Dynamic,1> batch_dmodel_params(5);
   
-  for(int ii = 0; ii < 10; ii++){
-    for(int jj = 1; jj <= 17; jj++){
+  for(int ii = 0; ii < 1000; ii++){
+    batch_dmodel_params = Eigen::Matrix<float,Eigen::Dynamic,1>::Zero(5,1); //init this sum.
+    for(int jj = 1; jj <= 3; jj++){
       memset(odom_fn, 0, 100);
       sprintf(odom_fn, "/home/justin/Downloads/Train3/extracted_data/odometry/%04d_odom_data.txt", jj);
       ROS_INFO("Reading Odom File %s", odom_fn);
@@ -671,8 +654,33 @@ void train_model_on_dataset(float lr){
     
       load_files(odom_fn, imu_fn, gt_fn);  
 
-      fileTrain(float_model_params);
+      fileTrain(float_model_params, batch_dmodel_params);
     }
+
+    float grad_norm = 0;
+    for(int i = 0; i < 5; i++){
+      grad_norm += (batch_dmodel_params[i]*batch_dmodel_params[i]);
+    }
+    grad_norm = sqrtf(grad_norm);
+    
+    if(grad_norm > 0){
+      batch_dmodel_params = batch_dmodel_params / grad_norm;
+      float_model_params = float_model_params - (lr_*batch_dmodel_params);
+    }
+    
+    ROS_INFO("\n\n");
+    ROS_INFO("======================================================================================");
+    ROS_INFO("%f %f %f %f %f", float_model_params[0], float_model_params[1], float_model_params[2], float_model_params[3], float_model_params[4]);
+    ROS_INFO("======================================================================================\n\n\n");
+    
+    float temp_values[5];
+    temp_values[0] = float_model_params[0];
+    temp_values[1] = float_model_params[1];
+    temp_values[2] = float_model_params[2];
+    temp_values[3] = float_model_params[3];
+    temp_values[4] = float_model_params[4];
+    g_hybrid_model->log_value(temp_values);
+    
   }
 }
 
