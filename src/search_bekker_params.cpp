@@ -154,7 +154,8 @@ int main(int argc, char **argv){
     test_CV3_paths();
     test_LD3_path();
   }
-  
-  train_model_on_dataset(1e-3f);
+
+  ROS_INFO("Learning rate %f", lr);
+  train_model_on_dataset(lr);
   del_tests();
 }

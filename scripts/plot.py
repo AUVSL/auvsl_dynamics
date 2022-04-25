@@ -15,3 +15,9 @@ plt.show()
 
 plt.plot(df['phi'])
 plt.show()
+
+# plt.plot(df['kc'])
+# plt.show()
+
+# plt.plot(df['kphi'])
+# plt.show()

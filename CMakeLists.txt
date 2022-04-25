@@ -48,12 +48,16 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 
 catkin_package(
+  INCLUDE_DIRS include/auvsl_dynamics include/auvsl_dynamics/generated
+  LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS roscpp rospy std_msgs auvsl_control message_runtime
 )
 
 ###########
 ## Build ##
 ###########
+
+
 
 include_directories(
   include/auvsl_dynamics
@@ -123,3 +127,32 @@ add_executable(search_bekker_params_node
 target_link_libraries(search_bekker_params_node ${catkin_LIBRARIES})
 set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -march=native -DNDEBUG -g -Wall -Wno-undef")
 #set_target_properties(search_bekker_params_node PROPERTIES COMPILE_FLAGS "-O3 -g -Wall -Wno-undef")
+
+
+
+add_library(${PROJECT_NAME}
+  src/HybridDynamics.cpp
+  src/utils.cpp
+  src/TireNetwork.cpp
+  src/VerifyModel.cpp
+  src/generated/forward_dynamics.cpp
+  src/generated/inertia_properties.cpp
+  src/generated/inverse_dynamics.cpp
+  src/generated/jacobians.cpp
+  src/generated/jsim.cpp
+  src/generated/miscellaneous.cpp
+  src/generated/transforms.cpp
+)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-O3 -march=native -DNDEBUG -g -Wall -Wno-undef")
+
+install(
+  TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)

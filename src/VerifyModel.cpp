@@ -2,7 +2,7 @@
 
 //Good old fashioned spaghetti code. Enjoy.
 
-#define TIME_HORIZON 6.0f
+float TIME_HORIZON;
 
 HybridDynamics *g_hybrid_model;
 Scalar z_stable;
@@ -152,6 +152,7 @@ void load_files(const char *odom_fn, const char *imu_fn, const char *gt_fn){
   
   delete[] vx_list;
   delete[] vy_list;
+  ROS_INFO("Done Loading Files");
 }
 //Done parsing the csv's
 
@@ -165,6 +166,7 @@ void forwardPropagateHorizon(double start_time, Scalar *X_start,
                              Eigen::Matrix<float,Eigen::Dynamic,1> &dmodel_params){
   //find corresponding index in odom_vec. By finding timestamp with
   //minimum difference.
+  ROS_INFO("Forward Propagate Horizon");
   unsigned start_idx = 0;
   double time_min = 100;
   double diff;
@@ -542,6 +544,7 @@ void fileTrain(Eigen::Matrix<float,Eigen::Dynamic,1> &float_model_params, Eigen:
 
 
 void test_CV3_paths(){
+  TIME_HORIZON = 6.0f;
   Scalar total_lin_err = 0;
   Scalar total_ang_err = 0;
   
@@ -597,6 +600,7 @@ void test_CV3_paths(){
 
 
 void test_LD3_path(){
+  TIME_HORIZON = 6.0f;
   ros::Time start_time = ros::Time::now();
   ros::Duration total_run_time = ros::Time::now() - start_time;
   
@@ -621,6 +625,7 @@ void test_LD3_path(){
 //This function just does the gradient descent.
 //Doesnt derive the gradient.
 void train_model_on_dataset(float lr){
+  TIME_HORIZON = 3.0f;
   //Need to derive expression for gradient wrt loss function.
   lr_ = lr;
   
@@ -662,6 +667,7 @@ void train_model_on_dataset(float lr){
       grad_norm += (batch_dmodel_params[i]*batch_dmodel_params[i]);
     }
     grad_norm = sqrtf(grad_norm);
+    ROS_INFO("grad norm %f", grad_norm);
     
     if(grad_norm > 0){
       batch_dmodel_params = batch_dmodel_params / grad_norm;

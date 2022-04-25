@@ -29,7 +29,7 @@ using Jackal::rcg::tz_rear_right_wheel;
 using Jackal::rcg::orderedJointIDs;
 
 
-const Scalar HybridDynamics::timestep = .005;
+const Scalar HybridDynamics::timestep = .001;
 const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,-9.81).finished();
 //const Acceleration HybridDynamics::GRAVITY_VEC = (Acceleration() << 0,0,0,0,0,0).finished();
 
@@ -48,31 +48,18 @@ HybridDynamics::HybridDynamics(){
   // bekker_params[2] = .8;              //n0
   // bekker_params[3] = 0;               //n1
   // bekker_params[4] = 22.5*M_PI/180.0; //phi
-
-  // bekker_params[0] = 29.760334;
-  // bekker_params[1] = 2083.000000;
-  // bekker_params[2] = 0.910965;
-  // bekker_params[3] = 0.190479;
-  // bekker_params[4] = 0.455691;
   
-  // bekker_params[0] = 29.760464;
-  // bekker_params[1] = 2083.000;
-  // bekker_params[2] = 0.897795;
-  // bekker_params[3] = 0.202991;
-  // bekker_params[4] = 0.532371;
-
-  // bekker_params[0] = 29.760471;
+  // bekker_params[0] = 29.760084;
   // bekker_params[1] = 2083.000000;
-  // bekker_params[2] = 0.899166;
-  // bekker_params[3] = 0.208863;
-  // bekker_params[4] = 0.536965;
-
-  bekker_params[0] = 29.760508;
+  // bekker_params[2] = 0.917826;
+  // bekker_params[3] = 0.152998;
+  // bekker_params[4] = 0.471988;
+  
+  bekker_params[0] = 29.758547;
   bekker_params[1] = 2083.000000;
-  bekker_params[2] = 0.889755;
-  bekker_params[3] = 0.211741;
-  bekker_params[4] = 0.556238;
-  
+  bekker_params[2] = 1.197933;
+  bekker_params[3] = 0.102483;
+  bekker_params[4] = 0.652405;
   
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);
@@ -138,7 +125,7 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
   u(0) = vl;
   u(1) = vr;
   
-  const int num_steps = 10; //10*.005 = .05
+  const int num_steps = 50; //10*.005 = .05
   for(int ii = 0; ii < num_steps; ii++){
     state_[17] = state_[19] = u[0];
     state_[18] = state_[20] = u[1];
@@ -146,7 +133,7 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     RK4(state_, Xt1, u);
     //Euler(state_, Xt1, u);
     state_ = Xt1;
-    log_vehicle_state();
+    //log_vehicle_state();
   }
 }
 
