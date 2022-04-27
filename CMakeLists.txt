@@ -65,9 +65,6 @@ include_directories(
 
 
 
-
-
-
 add_executable(verify_hybrid_model_node
   src/verify_hybrid_model.cpp
   src/VerifyModel.cpp
@@ -89,3 +86,40 @@ add_executable(verify_hybrid_model_node
 
 target_link_libraries(verify_hybrid_model_node ${catkin_LIBRARIES})
 set_target_properties(verify_hybrid_model_node PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
+
+
+
+
+add_library(${PROJECT_NAME}
+  src/verify_hybrid_model.cpp
+  src/VerifyModel.cpp
+  src/HybridDynamics.cpp
+  src/utils.cpp
+  src/TireNetwork.cpp
+  src/CombinedModel.cpp
+  src/NNJackalModel.cpp
+  src/BekkerModel.cpp
+  
+  src/generated/forward_dynamics.cpp
+  src/generated/inertia_properties.cpp
+  src/generated/inverse_dynamics.cpp
+  src/generated/jacobians.cpp
+  src/generated/jsim.cpp
+  src/generated/miscellaneous.cpp
+  src/generated/transforms.cpp  
+ )
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-O3 -DNDEBUG -march=native -Wall -Wno-undef")
+
+install(
+  TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
+
+

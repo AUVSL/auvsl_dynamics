@@ -36,10 +36,12 @@ std::ofstream HybridDynamics::log_file;
 std::ofstream HybridDynamics::debug_file;
 */
 Scalar HybridDynamics::timestep = .001;
+int HybridDynamics::altitude_map_not_set_ = 1;
+Scalar (*HybridDynamics::get_altitude_)(Scalar x, Scalar y, Scalar z_guess);
 
 
-Scalar get_altitude(Scalar x, Scalar y){
-  return std::max(-.5f*std::cos(2*x), 0.0f); //x*.2;
+Scalar get_altitude_simple(Scalar x, Scalar y, Scalar z_guess){
+  return 0; //std::max(-.5f*std::cos(2*x), 0.0f); //x*.2;
 }
 
 
@@ -48,35 +50,56 @@ Scalar get_altitude(Scalar x, Scalar y){
 HybridDynamics::HybridDynamics() : Model(){
   fwd_dynamics = new Jackal::rcg::ForwardDynamics(inertias, m_transforms);
   
-  //For more information on these, see TerrainMap.cpp and TerrainMap.h
-  
   // bekker_params[0] = 29.76;
   // bekker_params[1] = 2083;
   // bekker_params[2] = .8;
   // bekker_params[3] = 0;
   // bekker_params[4] = 22.5*M_PI/180.0;
 
-  bekker_params[0] = 29.760084;
+  // bekker_params[0] = 29.760084;
+  // bekker_params[1] = 2083.000000;
+  // bekker_params[2] = 0.917826;
+  // bekker_params[3] = 0.152998;
+  // bekker_params[4] = 0.471988;
+  
+  
+  bekker_params[0] = 29.758547;
   bekker_params[1] = 2083.000000;
-  bekker_params[2] = 0.917826;
-  bekker_params[3] = 0.152998;
-  bekker_params[4] = 0.471988;
+  bekker_params[2] = 1.197933;
+  bekker_params[3] = 0.102483;
+  bekker_params[4] = 0.652405;
+  
+  // bekker_params[0] = 29.758434;
+  // bekker_params[1] = 2083;
+  // bekker_params[2] = 1.216381;
+  // bekker_params[3] = 0.113669;
+  // bekker_params[4] = 0.651287;
+
+  if(altitude_map_not_set_){
+    setAltitudeMap(get_altitude_simple);
+  }
   
   JointState q(0,0,0,0);   //Joint position
   f_transforms.fr_front_left_wheel_link_X_fr_base_link.update(q);
   f_transforms.fr_base_link_X_fr_front_left_wheel_link_COM.update(q);
-  
+
   std::string log_filename;
   std::string debug_filename;
   ros::param::get("/xout_log_file_name", log_filename);
   ros::param::get("/debug_log_file_name", debug_filename);
-  startLog(log_filename, debug_filename);
+  //startLog(log_filename, debug_filename);
 }
 
 HybridDynamics::~HybridDynamics(){
   stopLog();
   delete fwd_dynamics;
 }
+
+void HybridDynamics::setAltitudeMap(Scalar (*alt_func)(Scalar x, Scalar y, Scalar z_guess)){
+  get_altitude_ = alt_func;
+  altitude_map_not_set_ = 0;
+}
+
 
 unsigned HybridDynamics::getStateDim() const{
   return STATE_DIM;
@@ -162,7 +185,7 @@ void HybridDynamics::step(Scalar vl, Scalar vr){
     RK4(state_, Xt1, u);
     //Euler(state_, Xt1, u);
     state_ = Xt1;
-    logVehicleState();
+    //logVehicleState();
   }
 }
 
@@ -216,7 +239,7 @@ void HybridDynamics::get_tire_cpts_sinkages(const Eigen::Matrix<Scalar,STATE_DIM
       test_rot = base_rot*test_rot;
       
       test_pos = end_pos_tire_joint + test_rot*radius_vec; //a point on the edge of the tire.
-      test_sinkage = get_altitude(test_pos[0],test_pos[1]) - test_pos[2];
+      test_sinkage = get_altitude_(test_pos[0],test_pos[1],0) - test_pos[2];
       
       if(test_sinkage > max_sinkage){
         best_rot = test_rot; //orientation of cpt
@@ -564,7 +587,7 @@ void HybridDynamics::ODE(const Eigen::Matrix<Scalar,STATE_DIM,1> &X, Eigen::Matr
 void HybridDynamics::startLog(std::string log_filename, std::string debug_filename){
   log_file.open(log_filename.c_str());
   log_file << "qw,qx,qy,qz,x,y,z,wx,wy,wz,vx,vy,vz,q1,q2,q3,q4,qd1,qd2,qd3,qd4\n";
-
+  
   debug_file.open(debug_filename.c_str());
   debug_file << "zr1,zr2,zr3,zr4\n";
 
@@ -614,7 +637,9 @@ void HybridDynamics::logValue(Scalar *values){
 
 
 void HybridDynamics::stopLog(){
-  log_file.close();
-  debug_file.close();
+  if(log_file.is_open())
+    log_file.close();
+  if(debug_file.is_open())
+    debug_file.close();
 }
 

@@ -28,6 +28,8 @@ public:
   
   HybridDynamics();
   ~HybridDynamics();
+
+  static void setAltitudeMap(Scalar (*alt_func)(Scalar x, Scalar y, Scalar z_guess));
   
   void logVehicleState();
   void logValue(float *values);
@@ -57,6 +59,7 @@ public:
   std::ofstream log_file;
   std::ofstream debug_file;
   static Scalar timestep; //The rate that nn_model operates at.
+  constexpr static Scalar stepsize = .05;
   
   //angular and linear vel are expressed in the body frame (I think)
   //Quaternion is x,y,z,w
@@ -69,6 +72,10 @@ public:
   
   Eigen::Matrix<Scalar,5,1> bekker_params;
   TireNetwork tire_network; //holds the tire-soil model
+
+  static int altitude_map_not_set_;
+  static Scalar (*get_altitude_)(Scalar x, Scalar y, Scalar z_guess);
+  
   
   Jackal::rcg::HomogeneousTransforms h_transforms; //not actually used
   Jackal::rcg::MotionTransforms      m_transforms;
